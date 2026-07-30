@@ -14,6 +14,9 @@ void main() {
     await tester.pumpWidget(const ProviderScope(child: App()));
 
     expect(find.text('FinAI'), findsOneWidget);
-    expect(find.text('Your personal finance companion'), findsOneWidget);
+    expect(
+      find.text('AI-Powered Personal Financial Management'),
+      findsOneWidget,
+    );
   });
 }
