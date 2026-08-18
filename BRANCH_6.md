@@ -1,0 +1,11 @@
+# Branch 6: Authentication - Presentation & Integration
+- Data layer:
+  - AuthRemoteDataSource (API calls)
+  - AuthRepositoryImpl (implementation)
+  - Request/Response models
+- Presentation layer:
+  - Riverpod providers
+  - AuthNotifier (state management)
+  - LoginScreen
+  - RegisterScreen
+- Router configuration
