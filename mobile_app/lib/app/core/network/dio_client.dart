@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../theme/app_theme.dart';
 import '../constants/app_constants.dart';
 import '../errors/app_exception.dart';
 import '../storage/secure_storage_service.dart';
@@ -84,7 +83,7 @@ class DioClient {
         queryParameters: queryParameters,
       );
       return response.data as T;
-    on DioException catch (e) {
+    } on DioException catch (e) {
       throw _handleException(e);
     } catch (e) {
       throw UnknownException(

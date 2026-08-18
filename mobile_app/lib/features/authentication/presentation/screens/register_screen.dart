@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/core/constants/validators.dart';
 import '../../../../app/core/extensions/index.dart';
-import '../../../../app/core/theme/app_theme.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../app/core/widgets/index.dart';
 import '../providers/auth_notifier.dart';
 import '../providers/auth_state.dart';
@@ -254,7 +255,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 color: AppColors.darkTeal,
                                 fontWeight: FontWeight.w600,
                               ),
-                          recognizer: TapGestureRecognizer()
+                          recognizer: CustomTextSpanGestureRecognizer()
                             ..onTap = () {
                               context.pop();
                             },
@@ -272,7 +273,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 }
 
-class TapGestureRecognizer extends GestureRecognizer {
+class CustomTextSpanGestureRecognizer extends TapGestureRecognizer {
   VoidCallback? onTap;
 
   @override
