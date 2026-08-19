@@ -1,8 +1,22 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+
 class AppConstants {
   AppConstants._();
 
   // API Configuration
-  static const String baseUrl = 'http://localhost:8080/api';
+  static String get baseUrl {
+    if (kIsWeb) {
+      return 'http://localhost:8080/api';
+    }
+    try {
+      if (Platform.isAndroid) {
+        // Physical Android device (e.g. Samsung SM-A075F at 192.168.1.9) uses host machine IP
+        return 'http://192.168.1.32:8080/api';
+      }
+    } catch (_) {}
+    return 'http://localhost:8080/api';
+  }
   static const Duration connectTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 30);
   static const String contentType = 'application/json';

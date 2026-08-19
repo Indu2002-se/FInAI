@@ -85,9 +85,11 @@ class DioClient {
       return response.data as T;
     } on DioException catch (e) {
       throw _handleException(e);
+    } on AppException {
+      rethrow;
     } catch (e) {
       throw UnknownException(
-        message: 'An unexpected error occurred',
+        message: 'An error occurred while processing data: $e',
         originalException: e,
       );
     }
@@ -107,9 +109,11 @@ class DioClient {
       return response.data as T;
     } on DioException catch (e) {
       throw _handleException(e);
+    } on AppException {
+      rethrow;
     } catch (e) {
       throw UnknownException(
-        message: 'An unexpected error occurred',
+        message: 'An error occurred while processing data: $e',
         originalException: e,
       );
     }
@@ -129,9 +133,11 @@ class DioClient {
       return response.data as T;
     } on DioException catch (e) {
       throw _handleException(e);
+    } on AppException {
+      rethrow;
     } catch (e) {
       throw UnknownException(
-        message: 'An unexpected error occurred',
+        message: 'An error occurred while processing data: $e',
         originalException: e,
       );
     }
@@ -151,9 +157,11 @@ class DioClient {
       return response.data as T;
     } on DioException catch (e) {
       throw _handleException(e);
+    } on AppException {
+      rethrow;
     } catch (e) {
       throw UnknownException(
-        message: 'An unexpected error occurred',
+        message: 'An error occurred while processing data: $e',
         originalException: e,
       );
     }
@@ -165,17 +173,52 @@ class DioClient {
       case DioExceptionType.receiveTimeout:
       case DioExceptionType.sendTimeout:
         return TimeoutException(
-          message: 'Request timeout. Please try again.',
+          message: 'Request timeout. Please check your network connection.',
+          originalException: error,
+        );
+
+      case DioExceptionType.connectionError:
+        return NetworkException(
+          message: 'Cannot connect to backend server. Please check your network or server URL.',
           originalException: error,
         );
 
       case DioExceptionType.badResponse:
         final statusCode = error.response?.statusCode ?? 0;
-        final message = error.response?.data?['message'] ?? 'An error occurred';
-        final code = error.response?.data?['code'];
+        String message = 'An error occurred';
+        String? code;
+
+        if (error.response?.data is Map<String, dynamic>) {
+          final data = error.response!.data as Map<String, dynamic>;
+
+          if (data.containsKey('validationErrors') &&
+              data['validationErrors'] is Map<String, dynamic>) {
+            final validationMap =
+                data['validationErrors'] as Map<String, dynamic>;
+            final fieldErrors = validationMap.entries
+                .map((e) => '${e.value}')
+                .join(', ');
+            if (fieldErrors.isNotEmpty) {
+              message = fieldErrors;
+            } else {
+              message = data['message']?.toString() ?? message;
+            }
+          } else if (data.containsKey('message') && data['message'] != null) {
+            message = data['message'].toString();
+          } else if (data.containsKey('error') && data['error'] != null) {
+            message = data['error'].toString();
+          }
+
+          code = data['code']?.toString();
+        } else if (error.response?.data is String &&
+            (error.response!.data as String).isNotEmpty) {
+          message = error.response!.data as String;
+        }
 
         switch (statusCode) {
           case 400:
+          case 409:
+          case 422:
             return BadRequestException(
               message: message,
               code: code,
@@ -222,20 +265,15 @@ class DioClient {
         );
 
       case DioExceptionType.unknown:
-        if (error.error is Exception) {
+      default:
+        if (error.error != null) {
           return NetworkException(
-            message: 'Network error: ${error.message}',
+            message: 'Network error: ${error.error}',
             originalException: error,
           );
         }
         return UnknownException(
-          message: 'An unexpected error occurred',
-          originalException: error,
-        );
-
-      default:
-        return UnknownException(
-          message: 'An unexpected error occurred',
+          message: error.message ?? 'An unexpected error occurred',
           originalException: error,
         );
     }

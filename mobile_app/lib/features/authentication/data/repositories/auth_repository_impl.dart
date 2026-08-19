@@ -1,4 +1,3 @@
-import '../../../../app/core/errors/app_exception.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 import '../../domain/entities/auth_entity.dart';
 import '../../domain/repositories/auth_repository.dart';

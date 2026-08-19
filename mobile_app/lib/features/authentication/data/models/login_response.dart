@@ -10,10 +10,19 @@ class LoginResponse {
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
+    final Map<String, dynamic> data =
+        (json.containsKey('data') && json['data'] is Map<String, dynamic>)
+            ? json['data'] as Map<String, dynamic>
+            : json;
+
     return LoginResponse(
-      token: json['token'] as String? ?? '',
-      refreshToken: json['refreshToken'] as String? ?? '',
-      user: UserData.fromJson(json['user'] as Map<String, dynamic>? ?? {}),
+      token: (data['token'] ?? data['accessToken'] ?? '').toString(),
+      refreshToken: (data['refreshToken'] ?? '').toString(),
+      user: UserData.fromJson(
+        data['user'] is Map<String, dynamic>
+            ? data['user'] as Map<String, dynamic>
+            : {},
+      ),
     );
   }
 
@@ -43,11 +52,11 @@ class UserData {
 
   factory UserData.fromJson(Map<String, dynamic> json) {
     return UserData(
-      id: json['id'] as String? ?? '',
-      email: json['email'] as String? ?? '',
-      firstName: json['firstName'] as String? ?? '',
-      lastName: json['lastName'] as String? ?? '',
-      profileComplete: json['profileComplete'] as bool? ?? false,
+      id: json['id']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      firstName: json['firstName']?.toString() ?? '',
+      lastName: json['lastName']?.toString() ?? '',
+      profileComplete: json['profileComplete'] == true,
     );
   }
 
