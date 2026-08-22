@@ -1,4 +1,4 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 // Authentication
@@ -49,6 +49,7 @@ import '../../features/reports/presentation/screens/monthly_report_screen.dart';
 import '../../features/savings/presentation/screens/savings_goals_dashboard_screen.dart';
 import '../../features/savings/presentation/screens/create_savings_goal_screen.dart';
 import '../../features/savings/presentation/screens/savings_goal_detail_screen.dart';
+import '../../features/savings/presentation/screens/ai_savings_plan_screen.dart';
 
 // Child Financial Literacy
 import '../../features/child_literacy/presentation/screens/child_savings_dashboard_screen.dart';
@@ -62,6 +63,12 @@ import '../../features/child_literacy/presentation/screens/rewards_screen.dart';
 // Settings
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../../features/settings/presentation/screens/notification_settings_screen.dart';
+
+// Automatic Transaction Detection
+import '../../features/transaction_detection/data/models/detected_transaction.dart';
+import '../../features/transaction_detection/presentation/screens/detected_transactions_page.dart';
+import '../../features/transaction_detection/presentation/screens/transaction_review_page.dart';
+import '../../features/transaction_detection/presentation/screens/detection_settings_page.dart';
 
 import 'route_names.dart';
 
@@ -249,6 +256,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CreateSavingsGoalScreen(),
       ),
       GoRoute(
+        path: '${RouteNames.aiSavingsPlan}/:id',
+        name: 'ai-savings-plan',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
+          return AISavingsPlanScreen(goalId: id);
+        },
+      ),
+      GoRoute(
         path: '${RouteNames.savingsGoalDetail}/:id',
         name: 'savings-goal-detail',
         builder: (context, state) {
@@ -292,6 +307,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RouteNames.rewards,
         name: 'rewards',
         builder: (context, state) => const RewardsScreen(),
+      ),
+
+      // ==================== Automatic Transaction Detection Routes ====================
+      GoRoute(
+        path: RouteNames.detectedTransactions,
+        name: 'detected-transactions',
+        builder: (context, state) => const DetectedTransactionsPage(),
+      ),
+      GoRoute(
+        path: RouteNames.detectionSettings,
+        name: 'detection-settings',
+        builder: (context, state) => const DetectionSettingsPage(),
+      ),
+      GoRoute(
+        path: RouteNames.transactionReview,
+        name: 'transaction-review',
+        builder: (context, state) {
+          final item = state.extra as DetectedTransactionModel;
+          return TransactionReviewPage(transaction: item);
+        },
       ),
 
       // ==================== Settings Routes ====================

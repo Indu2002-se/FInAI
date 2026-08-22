@@ -51,6 +51,7 @@ class RouteNames {
   static const String savingsGoals = '/savings';
   static const String createSavingsGoal = '/savings/create';
   static const String savingsGoalDetail = '/savings/detail';
+  static const String aiSavingsPlan = '/savings/ai-plan';
 
   // Child Literacy routes
   static const String childDashboard = '/child';
@@ -60,6 +61,11 @@ class RouteNames {
   static const String quizResult = '/child/quiz-result';
   static const String wishlist = '/child/wishlist';
   static const String rewards = '/child/rewards';
+
+  // Automatic Transaction Detection routes
+  static const String detectedTransactions = '/transactions/detected';
+  static const String detectionSettings = '/transactions/detection-settings';
+  static const String transactionReview = '/transactions/detected/review';
 
   // Settings routes
   static const String settings = '/settings';

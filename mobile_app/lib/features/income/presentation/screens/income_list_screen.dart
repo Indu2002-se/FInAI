@@ -3,15 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/core/widgets/custom_button.dart';
 import '../../../../app/core/widgets/stat_row.dart';
-import '../../../../app/core/widgets/transaction_list_item.dart';
 import '../../../../app/core/widgets/bottom_navigation.dart';
+import '../../../../app/router/route_names.dart';
+import '../../../../app/theme/app_theme.dart';
+import '../providers/income_provider.dart';
 
-/// Screen 12: Income List Screen
+/// Screen 12: Income List Screen — Live Data Connected
 class IncomeListScreen extends ConsumerWidget {
   const IncomeListScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final incomesAsync = ref.watch(incomeListProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -30,7 +34,7 @@ class IncomeListScreen extends ConsumerWidget {
             if (context.canPop()) {
               context.pop();
             } else {
-              context.go('/dashboard');
+              context.go(RouteNames.dashboard);
             }
           },
         ),
@@ -45,85 +49,165 @@ class IncomeListScreen extends ConsumerWidget {
         centerTitle: true,
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: StatRow(
-                items: [
-                  StatItem(label: 'Total Income', value: 'Rs.150,000', color: Colors.green[700]),
+        child: incomesAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                const SizedBox(height: 12),
+                Text('Error loading income records: $err',
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(incomeListProvider),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+          data: (incomes) {
+            final total = incomes.fold<double>(0.0, (sum, i) => sum + i.amount);
+
+            return RefreshIndicator(
+              onRefresh: () async => ref.invalidate(incomeListProvider),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: StatRow(
+                      items: [
+                        StatItem(
+                          label: 'Total Income',
+                          value: 'Rs. ${total.toStringAsFixed(0)}',
+                          color: AppColors.success,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: incomes.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.account_balance_wallet,
+                                    size: 48, color: Colors.grey[400]),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'No income logged yet.',
+                                  style: TextStyle(
+                                      color: Colors.grey[600], fontSize: 14),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            itemCount: incomes.length,
+                            itemBuilder: (context, index) {
+                              final item = incomes[index];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: Colors.grey[200]!),
+                                  boxShadow: AppTheme.shadowSoft,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade50,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Icon(
+                                        _getCategoryIcon(item.category),
+                                        color: AppColors.success,
+                                        size: 20,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.source,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            item.category.replaceAll('_', ' '),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                          Text(
+                                            item.incomeDate,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey[500],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '+Rs.${item.amount.toStringAsFixed(0)}',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: AppColors.success,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: CustomButton(
+                      text: '+ Add Income',
+                      onPressed: () => context.push(RouteNames.addIncome),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Categories: Salary · Freelance · Investment',
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Search bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.search, color: Colors.grey[600], size: 18),
-                    const SizedBox(width: 8),
-                    Text('Search / Filter', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey[300]!),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: ListView(
-                  children: const [
-                    TransactionListItem(
-                      title: 'Salary — August',
-                      subtitle: 'Salary',
-                      value: '+Rs.150,000',
-                      icon: Icons.account_balance_wallet,
-                      isIncome: true,
-                    ),
-                    TransactionListItem(
-                      title: 'Freelance Project',
-                      subtitle: 'Freelance',
-                      value: '+Rs.20,000',
-                      icon: Icons.work,
-                      isIncome: true,
-                    ),
-                    TransactionListItem(
-                      title: 'Dividend Payout',
-                      subtitle: 'Investment',
-                      value: '+Rs.3,500',
-                      icon: Icons.trending_up,
-                      isIncome: true,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: CustomButton(text: '+ Add Income', onPressed: () {}),
-            ),
-          ],
+            );
+          },
         ),
       ),
       bottomNavigationBar: const BottomNavigation(currentIndex: 1),
     );
+  }
+
+  IconData _getCategoryIcon(String category) {
+    switch (category.toUpperCase()) {
+      case 'SALARY':
+        return Icons.work;
+      case 'BUSINESS':
+        return Icons.business_center;
+      case 'INVESTMENT':
+        return Icons.trending_up;
+      case 'FREELANCE':
+        return Icons.laptop_mac;
+      case 'AGRICULTURE':
+        return Icons.agriculture;
+      default:
+        return Icons.account_balance_wallet;
+    }
   }
 }

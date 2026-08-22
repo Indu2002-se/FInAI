@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../app/theme/app_theme.dart';
+import '../providers/ai_provider.dart';
 
-/// Screen 24: Expense Forecast Screen
+/// Screen 24: Expense Forecast Screen — Live Prophet ML Forecast Data
 class ExpenseForecastScreen extends ConsumerWidget {
   const ExpenseForecastScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final forecastAsync = ref.watch(expenseForecastProvider);
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -28,98 +32,130 @@ class ExpenseForecastScreen extends ConsumerWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,
-            // color: Colors.black87,
             letterSpacing: 0.5,
           ),
         ),
         centerTitle: true,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  // color: Colors.blue[50],
-                  border: Border.all(color: Colors.blue[700]!),
-                  borderRadius: BorderRadius.circular(12),
+        child: forecastAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, _) => Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                const SizedBox(height: 12),
+                Text('Error loading forecast: $err',
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(expenseForecastProvider),
+                  child: const Text('Retry'),
                 ),
-                child: Column(
-                  children: [
-                    Text(
-                      'SEPTEMBER 2026',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        // color: Colors.grey[700],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Rs.48,500',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w800,
-                        // color: Colors.blue[700],
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Predicted Total Expenses',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'CATEGORY BREAKDOWN',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildForecastItem('Food & Groceries', 16000, 1500, true),
-              _buildForecastItem('Transport', 8500, 500, true),
-              _buildForecastItem('Utilities', 5200, 0, false),
-              _buildForecastItem('Entertainment', 11000, 1000, true),
-              _buildForecastItem('Healthcare', 4800, -200, false),
-              _buildForecastItem('Others', 3000, 0, false),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  // color: Colors.amber[50],
-                  border: Border.all(color: Colors.amber[700]!),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info, color: Colors.amber[700], size: 20),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Forecast based on last 3 months spending patterns',
-                        style: TextStyle(fontSize: 12, color: Colors.grey[800]),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
+          data: (forecast) {
+            final totalList = forecast.total;
+            final nextMonth = totalList.isNotEmpty ? totalList.first : null;
+            final nextMonthAmount = nextMonth?.predictedAmount ?? 0.0;
+            final nextMonthDate = nextMonth?.date ?? 'Next Month';
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      border: Border.all(color: Colors.blue.shade700, width: 2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          nextMonthDate.length >= 7
+                              ? nextMonthDate.substring(0, 7)
+                              : nextMonthDate,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Rs.${nextMonthAmount.toStringAsFixed(0)}',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.blue.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Next Month Predicted Total',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    '6-MONTH PROJECTIONS',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                      color: Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (totalList.isEmpty)
+                    const Text('No forecast points available.')
+                  else
+                    ...totalList.map((pt) => _buildForecastItem(
+                          pt.date.length >= 7 ? pt.date.substring(0, 7) : pt.date,
+                          pt.predictedAmount,
+                          pt.lowerBound,
+                          pt.upperBound,
+                        )),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      border: Border.all(color: Colors.amber.shade700),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.info, color: Colors.amber.shade700, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Prophet ML time-series forecast generated from your spending history and demographic profiles.',
+                            style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
   }
 
-  Widget _buildForecastItem(String category, double amount, double change, bool isIncrease) {
+  Widget _buildForecastItem(
+      String date, double amount, double lower, double upper) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -135,35 +171,24 @@ class ExpenseForecastScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  category,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  date,
+                  style:
+                      const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
-                if (change != 0) ...[
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        isIncrease ? Icons.arrow_upward : Icons.arrow_downward,
-                        size: 12,
-                        color: isIncrease ? Colors.red[700] : Colors.green[700],
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Rs.${change.abs().toStringAsFixed(0)} vs last month',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isIncrease ? Colors.red[700] : Colors.green[700],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                const SizedBox(height: 4),
+                Text(
+                  'Range: Rs.${lower.toStringAsFixed(0)} - Rs.${upper.toStringAsFixed(0)}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                ),
               ],
             ),
           ),
           Text(
             'Rs.${amount.toStringAsFixed(0)}',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                color: AppColors.darkTeal),
           ),
         ],
       ),
