@@ -37,7 +37,136 @@ class MainDashboardScreen extends ConsumerWidget {
             message: err.toString().replaceAll('Exception: ', ''),
             onRetry: () => ref.invalidate(dashboardFutureProvider),
           ),
-          data: (data) => _DashboardBody(data: data),
+          data: (data) => Column(
+            children: [
+              // Fixed header at top
+              _DashboardHeader(data: data, pendingCount: ref.watch(pendingCountProvider)),
+              // Scrollable content
+              Expanded(
+                child: _DashboardBody(data: data),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dashboard Header (Fixed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DashboardHeader extends ConsumerWidget {
+  const _DashboardHeader({required this.data, required this.pendingCount});
+
+  final DashboardModel data;
+  final int pendingCount;
+
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: AppTheme.spacing16, vertical: AppTheme.spacing12),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: AppColors.primaryGradient,
+          boxShadow: AppTheme.shadowMedium,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: EdgeInsets.all(AppTheme.spacing20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // App name and message icon row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'FinAI',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: AppColors.white,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
+                ),
+                Stack(
+                  children: [
+                    IconButton(
+                      tooltip: 'Auto-Detected Transactions',
+                      onPressed: () => context.push(RouteNames.detectedTransactions),
+                      icon: Icon(Icons.sms_outlined,
+                          color: AppColors.white, size: 24),
+                    ),
+                    if (pendingCount > 0)
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: AppColors.orange,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$pendingCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: AppTheme.spacing16),
+            // User greeting and name row
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(22),
+                  ),
+                  child:
+                      Icon(Icons.person, color: AppColors.darkTeal, size: 24),
+                ),
+                SizedBox(width: AppTheme.spacing12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _greeting(),
+                        style: theme.textTheme.bodySmall
+                            ?.copyWith(color: AppColors.white.withAlpha(230)),
+                      ),
+                      SizedBox(height: AppTheme.spacing4),
+                      Text(
+                        data.userName,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                            color: AppColors.white,
+                            fontWeight: FontWeight.w700),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
@@ -96,79 +225,6 @@ class _DashboardBody extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Header ──────────────────────────────────────────────────────────
-          Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              boxShadow: AppTheme.shadowMedium,
-            ),
-            padding: EdgeInsets.all(AppTheme.spacing20),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(22),
-                  ),
-                  child:
-                      Icon(Icons.person, color: AppColors.darkTeal, size: 24),
-                ),
-                SizedBox(width: AppTheme.spacing12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _greeting(),
-                        style: theme.textTheme.bodySmall
-                            ?.copyWith(color: AppColors.white.withAlpha(230)),
-                      ),
-                      SizedBox(height: AppTheme.spacing4),
-                      Text(
-                        data.userName,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                            color: AppColors.white,
-                            fontWeight: FontWeight.w700),
-                      ),
-                    ],
-                  ),
-                ),
-                Stack(
-                  children: [
-                    IconButton(
-                      tooltip: 'Auto-Detected Transactions',
-                      onPressed: () => context.push(RouteNames.detectedTransactions),
-                      icon: Icon(Icons.sms_outlined,
-                          color: AppColors.white, size: 24),
-                    ),
-                    if (pendingCount > 0)
-                      Positioned(
-                        right: 6,
-                        top: 6,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: AppColors.orange,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            '$pendingCount',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
           // ── Transaction Detection Pending Banner ─────────────────────────────
           const SizedBox(height: 12),
           TransactionDetectionBanner(),

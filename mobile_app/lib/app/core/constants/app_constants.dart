@@ -12,31 +12,44 @@ class AppConstants {
   }
 
   // API Configuration
-  static String get baseUrl {
+  static List<String> get candidateBaseUrls {
     if (_overrideBaseUrl != null && _overrideBaseUrl!.isNotEmpty) {
-      return _overrideBaseUrl!;
+      return [_overrideBaseUrl!];
     }
 
     const envUrl = String.fromEnvironment('API_BASE_URL');
     if (envUrl.isNotEmpty) {
-      return envUrl;
+      return [envUrl];
     }
 
     if (kIsWeb) {
-      return 'http://localhost:8080/api';
+      return ['http://localhost:8080/api', 'http://127.0.0.1:8080/api'];
     }
+
     try {
       if (Platform.isAndroid) {
-        // Current host IP on local Wi-Fi: 10.138.201.79
-        // For standard Android emulator, use 10.0.2.2:8080/api
-        return 'http://10.138.201.79:8080/api';
+        return [
+          'http://localhost:8080/api',
+          'http://10.0.2.2:8080/api',
+          'http://10.233.96.79:8080/api',
+          'http://127.0.0.1:8080/api',
+        ];
+      }
+      if (Platform.isIOS) {
+        return [
+          'http://localhost:8080/api',
+          'http://10.233.96.79:8080/api',
+        ];
       }
     } catch (_) {}
-    return 'http://localhost:8080/api';
+
+    return ['http://localhost:8080/api'];
   }
 
-  static const Duration connectTimeout = Duration(seconds: 15);
-  static const Duration receiveTimeout = Duration(seconds: 15);
+  static String get baseUrl => candidateBaseUrls.first;
+
+  static const Duration connectTimeout = Duration(seconds: 10);
+  static const Duration receiveTimeout = Duration(seconds: 10);
   static const String contentType = 'application/json';
 
   // Storage Keys
