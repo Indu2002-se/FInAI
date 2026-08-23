@@ -15,7 +15,7 @@ class NotificationDatasource {
     required String title,
     required String notificationText,
   }) {
-    final fullText = ' ';
+    final fullText = '$title $notificationText'.trim();
     return TransactionParser.parseMessage(
       body: fullText,
       sourceApp: packageName,
@@ -29,12 +29,14 @@ class NotificationDatasource {
       {
         'package': 'com.combank.digital',
         'title': 'Commercial Bank Digital',
-        'text': 'Debit: Rs. 3,200.00 spent at Uber Eats with Card ending in 4455. TxnID: UBR88229',
+        'text':
+            'Debit: Rs. 3,200.00 spent at Uber Eats with Card ending in 4455. TxnID: UBR88229',
       },
       {
         'package': 'lk.sampath.payapp',
         'title': 'Sampath WePay',
-        'text': 'Payment of LKR 5,400.00 made to Asiri Hospitals. Ref: WEP66778',
+        'text':
+            'Payment of LKR 5,400.00 made to Asiri Hospitals. Ref: WEP66778',
       },
       {
         'package': 'com.dialog.myaccount',

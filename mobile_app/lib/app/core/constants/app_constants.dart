@@ -29,17 +29,15 @@ class AppConstants {
     try {
       if (Platform.isAndroid) {
         return [
-          'http://localhost:8080/api',
+          // Android Emulator uses this alias for the development machine.
           'http://10.0.2.2:8080/api',
-          'http://10.233.96.79:8080/api',
+          // Physical Android devices use localhost when started through
+          // tool/run_android_debug.ps1, which creates an ADB port tunnel.
           'http://127.0.0.1:8080/api',
         ];
       }
       if (Platform.isIOS) {
-        return [
-          'http://localhost:8080/api',
-          'http://10.233.96.79:8080/api',
-        ];
+        return ['http://localhost:8080/api', 'http://10.233.96.79:8080/api'];
       }
     } catch (_) {}
 

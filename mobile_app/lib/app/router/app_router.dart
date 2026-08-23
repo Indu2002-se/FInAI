@@ -1,16 +1,17 @@
-﻿import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 // Authentication
 import '../../features/authentication/presentation/screens/forgot_password_screen.dart';
 import '../../features/authentication/presentation/screens/login_screen.dart';
 import '../../features/authentication/presentation/screens/register_screen.dart';
-import '../../features/authentication/presentation/screens/splash_screen.dart';
+import '../../features/splash/presentation/screens/splash_screen.dart';
 
 // Onboarding
 import '../../features/onboarding/presentation/screens/employment_income_screen.dart';
 import '../../features/onboarding/presentation/screens/financial_profile_screen.dart';
 import '../../features/onboarding/presentation/screens/household_information_screen.dart';
+import '../../features/onboarding/presentation/screens/intro_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_welcome_screen.dart';
 import '../../features/onboarding/presentation/screens/personal_information_screen.dart';
 
@@ -81,6 +82,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: RouteNames.splash,
         name: 'splash',
         builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.intro,
+        name: 'intro',
+        builder: (context, state) => const IntroScreen(),
       ),
       GoRoute(
         path: RouteNames.login,

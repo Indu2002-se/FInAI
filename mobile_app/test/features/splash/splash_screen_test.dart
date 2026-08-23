@@ -4,15 +4,18 @@ import 'package:mobile_app/app/theme/app_theme.dart';
 import 'package:mobile_app/features/splash/presentation/screens/splash_screen.dart';
 
 void main() {
-  testWidgets('SplashScreen displays the FinAI branding', (tester) async {
+  testWidgets('SplashScreen displays the configured loading image', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(theme: AppTheme.lightTheme, home: const SplashScreen()),
     );
 
-    expect(find.text('FinAI'), findsOneWidget);
+    final image = tester.widget<Image>(find.byType(Image));
     expect(
-      find.text('AI-Powered Personal Financial Management'),
-      findsOneWidget,
+      (image.image as AssetImage).assetName,
+      'assets/main_start_loading.jpeg',
     );
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 }
