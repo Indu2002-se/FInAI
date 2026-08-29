@@ -19,6 +19,12 @@ class NativeTransactionCapture {
   static Future<bool> hasSmsPermission() async =>
       await _methods.invokeMethod<bool>('hasSmsPermission') ?? false;
 
+  static Future<bool> startSmsListener() async =>
+      await _methods.invokeMethod<bool>('startSmsListener') ?? false;
+
+  static Future<void> stopSmsListener() async =>
+      _methods.invokeMethod<void>('stopSmsListener');
+
   static Future<void> openNotificationListenerSettings() =>
       _methods.invokeMethod<void>('openNotificationListenerSettings');
 

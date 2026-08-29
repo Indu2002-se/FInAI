@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:crypto/crypto.dart';
 import '../models/detected_transaction.dart';
 
@@ -14,17 +14,21 @@ class TransactionParser {
     String? sender,
     String? sourceApp,
     String sourceType = 'SMS',
+    DateTime? transactionDate,
   }) {
     if (body.trim().isEmpty) return null;
 
     final cleanText = body.trim();
     final lowerText = cleanText.toLowerCase();
 
-    // 1. Direction classification
+    // 0. Filter out OTPs, verification codes, and security alerts
+    if (_isOtpOrSecurityMessage(lowerText)) {
+      return null;
+    }
+
+    // 1. Direction classification — only debit & credit (not every SMS).
     String transactionType = 'UNKNOWN';
-    if (_isTransfer(lowerText)) {
-      transactionType = 'TRANSFER';
-    } else if (_isDebit(lowerText)) {
+    if (_isDebit(lowerText)) {
       transactionType = 'DEBIT';
     } else if (_isCredit(lowerText)) {
       transactionType = 'CREDIT';
@@ -33,11 +37,14 @@ class TransactionParser {
     // Amount extraction
     var amount = _extractAmount(cleanText);
 
-    // 1b. If amount exists but type unclear, classify bank SMS by cues / sender.
+    // If amount exists but type unclear, classify bank SMS as debit/credit only.
     if (transactionType == 'UNKNOWN' && amount != null && amount > 0) {
       if (_looksLikeBankMessage(lowerText, sender)) {
         if (_softCreditHint(lowerText)) {
           transactionType = 'CREDIT';
+        } else if (_isTransfer(lowerText)) {
+          // Pure transfers are ignored — user wants debit/credit only.
+          return null;
         } else {
           transactionType = 'DEBIT';
         }
@@ -49,8 +56,8 @@ class TransactionParser {
     }
     final resolvedAmount = amount;
 
-    // Keep debit / credit / transfer only (skip OTP and normal chats)
-    if (transactionType == 'UNKNOWN') {
+    // Strict filter: debit and credit only (skip OTP, chats, transfers, unknown).
+    if (transactionType != 'DEBIT' && transactionType != 'CREDIT') {
       return null;
     }
 
@@ -63,11 +70,13 @@ class TransactionParser {
     // 4. Reference extraction
     final reference = _extractReference(cleanText);
 
-    // 5. Date & Time
-    final transactionDate = DateTime.now().toIso8601String();
+    // 5. Date & Time (preserve actual message timestamp if available)
+    final resolvedDate =
+        (transactionDate ?? DateTime.now()).toIso8601String();
 
     // 6. Category classification
-    final suggestedCategory = _suggestCategory(merchant ?? cleanText, transactionType);
+    final suggestedCategory =
+        _suggestCategory('${merchant ?? ""} $cleanText', transactionType);
 
     // 7. Calculate confidence
     double confidence = 0.0;
@@ -91,13 +100,23 @@ class TransactionParser {
       transactionType: transactionType,
       merchant: merchant,
       accountReference: accountRef,
-      transactionDate: transactionDate,
+      transactionDate: resolvedDate,
       reference: reference,
       rawTextHash: rawTextHash,
       confidence: confidence,
       status: 'PENDING',
       suggestedCategory: suggestedCategory,
     );
+  }
+
+  static bool _isOtpOrSecurityMessage(String text) {
+    return text.contains('otp') ||
+        text.contains('verification code') ||
+        text.contains('security code') ||
+        text.contains('one time password') ||
+        text.contains('do not share') ||
+        text.contains('never share your') ||
+        text.contains('temporary password');
   }
 
   static bool _isTransfer(String text) {
@@ -173,14 +192,49 @@ class TransactionParser {
   }
 
   static double? _extractAmount(String text) {
-    final patterns = [
+    // 1. Highest priority: Amount directly linked to debit/credit action words
+    final actionPatterns = [
+      RegExp(
+        r'(?:debited\s*(?:by|for|with|of)?|credited\s*(?:by|for|with|of)?|paid\s*(?:for|to|of)?|spent|withdrawn|deposit(?:ed)?\s*(?:by|of|with)?|purchase(?:d)?|payment\s*(?:of|for)?|transfer\s*(?:of)?)\s*(?:Rs\.?|LKR|USD|[$])?\s*([\d,]+\.?\d*)',
+        caseSensitive: false,
+      ),
+      RegExp(
+        r'(?:Rs\.?|LKR|USD|[$])\s*([\d,]+\.?\d*)\s*(?:has been|is|was)?\s*(?:debited|credited|spent|paid|deducted|withdrawn)',
+        caseSensitive: false,
+      ),
+    ];
+
+    for (final pattern in actionPatterns) {
+      final match = pattern.firstMatch(text);
+      if (match != null && match.groupCount >= 1) {
+        final rawStr = match.group(1)?.replaceAll(',', '');
+        if (rawStr != null) {
+          final val = double.tryParse(rawStr);
+          if (val != null && val > 0) return val;
+        }
+      }
+    }
+
+    // 2. Secondary priority: Strip available balance suffix so we don't pick it by mistake
+    var scrubbedText = text;
+    final balIndex = scrubbedText.toLowerCase().indexOf('avail');
+    if (balIndex > 0) {
+      scrubbedText = scrubbedText.substring(0, balIndex);
+    } else {
+      final balIndex2 = scrubbedText.toLowerCase().indexOf('bal:');
+      if (balIndex2 > 0) {
+        scrubbedText = scrubbedText.substring(0, balIndex2);
+      }
+    }
+
+    final fallbackPatterns = [
       RegExp(r'(?:Rs\.?|LKR|USD|[$])\s*([\d,]+\.?\d*)', caseSensitive: false),
       RegExp(r'(?:amount|for|value)(?:\s*(?:of|is|:))?\s*(?:Rs\.?|LKR)?\s*([\d,]+\.?\d*)', caseSensitive: false),
       RegExp(r'\b([\d,]+\.\d{2})\b'),
     ];
 
-    for (final pattern in patterns) {
-      final match = pattern.firstMatch(text);
+    for (final pattern in fallbackPatterns) {
+      final match = pattern.firstMatch(scrubbedText);
       if (match != null && match.groupCount >= 1) {
         final rawStr = match.group(1)?.replaceAll(',', '');
         if (rawStr != null) {

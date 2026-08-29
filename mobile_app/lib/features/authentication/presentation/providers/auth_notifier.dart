@@ -11,6 +11,9 @@ import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/google_login_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
+import '../../../transaction_detection/data/models/detection_settings.dart';
+import '../../../transaction_detection/data/repositories/transaction_detection_repository.dart';
+import '../../../transaction_detection/presentation/providers/transaction_detection_provider.dart';
 import 'auth_providers.dart';
 import 'auth_state.dart';
 
@@ -58,6 +61,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
         lastName: lastName,
       );
       _invalidateUserScopedProviders();
+      // Ensure SMS detection toggle is OFF by default for newly signed up user
+      try {
+        final detectionRepo = ref.read(transactionDetectionRepositoryProvider);
+        await detectionRepo.updateSettings(
+          DetectionSettingsModel(
+            id: 0,
+            smsEnabled: false,
+            notificationEnabled: true,
+            confirmationRequired: true,
+          ),
+        );
+      } catch (_) {
+        // Fallback gracefully if backend is offline; DetectionSettingsModel defaults to false
+      }
+      ref.invalidate(detectionSettingsProvider);
+      ref.invalidate(pendingDetectedTransactionsProvider);
+      ref.invalidate(allDetectedTransactionsProvider);
       state = AuthState.authenticated(result);
     } catch (e) {
       state = AuthState.error(e.toString());
@@ -111,6 +131,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     ref.invalidate(expenseForecastProvider);
     ref.invalidate(aiRecommendationProvider);
     ref.invalidate(savingsPlanProvider);
+    ref.invalidate(detectionSettingsProvider);
+    ref.invalidate(pendingDetectedTransactionsProvider);
+    ref.invalidate(allDetectedTransactionsProvider);
   }
 }
 

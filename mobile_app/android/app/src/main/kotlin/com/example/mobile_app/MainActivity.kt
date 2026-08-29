@@ -1,10 +1,14 @@
 package com.example.mobile_app
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import android.provider.Telephony
 import androidx.core.app.ActivityCompat
@@ -30,12 +34,14 @@ object TransactionCaptureEvents {
         }
     }
 
-    /** Emit live if Flutter is listening; otherwise persist for later drain. */
-    fun emitOrQueue(context: android.content.Context, event: Map<String, String>) {
+    /**
+     * Always persist first so events are never lost if Flutter drops a live event,
+     * then also emit live when the EventChannel is listening.
+     */
+    fun emitOrQueue(context: Context, event: Map<String, String>) {
+        TransactionEventStore.enqueue(context.applicationContext, event)
         if (hasSink()) {
             emit(event)
-        } else {
-            TransactionEventStore.enqueue(context.applicationContext, event)
         }
     }
 }
@@ -46,6 +52,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private var pendingSmsPermissionResult: MethodChannel.Result? = null
+    private var dynamicSmsReceiver: BroadcastReceiver? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -85,7 +92,6 @@ class MainActivity : FlutterActivity() {
                             return@setMethodCallHandler
                         }
                         val sinceMs = call.argument<Number>("sinceMs")?.toLong() ?: 0L
-                        // First sync: last 365 days only (avoids scanning entire device history)
                         val effectiveSince = if (sinceMs > 0L) {
                             sinceMs
                         } else {
@@ -93,9 +99,33 @@ class MainActivity : FlutterActivity() {
                         }
                         result.success(readSmsInbox(effectiveSince))
                     }
+                    "startSmsListener" -> {
+                        startDynamicSmsReceiver()
+                        result.success(hasSmsPermission())
+                    }
+                    "stopSmsListener" -> {
+                        stopDynamicSmsReceiver()
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }
+
+        if (hasSmsPermission()) {
+            startDynamicSmsReceiver()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (hasSmsPermission()) {
+            startDynamicSmsReceiver()
+        }
+    }
+
+    override fun onDestroy() {
+        stopDynamicSmsReceiver()
+        super.onDestroy()
     }
 
     private fun hasSmsPermission(): Boolean =
@@ -104,10 +134,10 @@ class MainActivity : FlutterActivity() {
 
     private fun requestSmsPermission(result: MethodChannel.Result) {
         if (hasSmsPermission()) {
+            startDynamicSmsReceiver()
             result.success(true)
             return
         }
-        // Wait for the system dialog — do not return false before the user answers.
         pendingSmsPermissionResult?.success(false)
         pendingSmsPermissionResult = result
         ActivityCompat.requestPermissions(
@@ -125,8 +155,48 @@ class MainActivity : FlutterActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode != SMS_PERMISSION_REQUEST_CODE) return
         val granted = hasSmsPermission()
+        if (granted) {
+            startDynamicSmsReceiver()
+        }
         pendingSmsPermissionResult?.success(granted)
         pendingSmsPermissionResult = null
+    }
+
+    private fun startDynamicSmsReceiver() {
+        if (dynamicSmsReceiver != null || !hasSmsPermission()) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context, intent: Intent) {
+                if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
+                val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return
+                if (messages.isEmpty()) return
+                val event = mapOf(
+                    "sourceType" to "SMS",
+                    "sender" to (messages.firstOrNull()?.originatingAddress ?: "Unknown sender"),
+                    "text" to messages.joinToString("") { it.messageBody ?: "" },
+                    "receivedAtMs" to System.currentTimeMillis().toString(),
+                )
+                TransactionCaptureEvents.emitOrQueue(context.applicationContext, event)
+            }
+        }
+        val filter = IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION).apply {
+            priority = IntentFilter.SYSTEM_HIGH_PRIORITY
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(receiver, filter)
+        }
+        dynamicSmsReceiver = receiver
+    }
+
+    private fun stopDynamicSmsReceiver() {
+        val receiver = dynamicSmsReceiver ?: return
+        try {
+            unregisterReceiver(receiver)
+        } catch (_: Exception) {
+        }
+        dynamicSmsReceiver = null
     }
 
     private fun readSmsInbox(sinceMs: Long): List<Map<String, String>> {
@@ -137,7 +207,8 @@ class MainActivity : FlutterActivity() {
             Telephony.Sms.BODY,
             Telephony.Sms.DATE,
         )
-        val selection = if (sinceMs > 0) "${Telephony.Sms.DATE} > ?" else null
+        // Use >= so borderline timestamps are not skipped after last sync.
+        val selection = if (sinceMs > 0) "${Telephony.Sms.DATE} >= ?" else null
         val selectionArgs = if (sinceMs > 0) arrayOf(sinceMs.toString()) else null
         val sortOrder = "${Telephony.Sms.DATE} ASC"
 
@@ -163,7 +234,6 @@ class MainActivity : FlutterActivity() {
                 )
             }
         } catch (_: SecurityException) {
-            // Permission revoked mid-flight
         } finally {
             cursor?.close()
         }

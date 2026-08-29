@@ -126,18 +126,41 @@ class _DetectionSettingsPageState extends ConsumerState<DetectionSettingsPage> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text(
-                                      'Allow SMS permission, then turn on detection.',
+                                      'SMS permission is required to detect bank messages.',
                                     ),
                                   ),
                                 );
                               }
                               return;
                             }
-                            await ref
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Enabling SMS detection & analyzing phone messages...',
+                                  ),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                            final count = await ref
                                 .read(transactionDetectionNotifierProvider.notifier)
                                 .enableSmsAndSyncInbox();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    count > 0
+                                        ? 'SMS detection activated. Detected $count debit/credit transactions.'
+                                        : 'SMS detection activated. New bank messages will be detected automatically.',
+                                  ),
+                                  backgroundColor: AppColors.success,
+                                ),
+                              );
+                            }
                             return;
                           }
+                          await NativeTransactionCapture.stopSmsListener();
                           _updateSettings(settings.copyWith(smsEnabled: false));
                         },
                       ),
@@ -261,7 +284,7 @@ class _DetectionSettingsPageState extends ConsumerState<DetectionSettingsPage> {
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    ' • Rs. ',
+                                    '${_liveParsedResult!.transactionType} • Rs. ${_liveParsedResult!.amount.toStringAsFixed(2)}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       color:
@@ -281,7 +304,7 @@ class _DetectionSettingsPageState extends ConsumerState<DetectionSettingsPage> {
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      '% Match',
+                                      '${(_liveParsedResult!.confidence * 100).toInt()}% Match',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 10,
@@ -294,22 +317,22 @@ class _DetectionSettingsPageState extends ConsumerState<DetectionSettingsPage> {
                               const SizedBox(height: 6),
                               if (_liveParsedResult!.merchant != null)
                                 Text(
-                                  '• Merchant: ',
+                                  '• Merchant: ${_liveParsedResult!.merchant}',
                                   style: const TextStyle(fontSize: 12),
                                 ),
                               if (_liveParsedResult!.suggestedCategory != null)
                                 Text(
-                                  '• Category: ',
+                                  '• Category: ${_liveParsedResult!.suggestedCategory}',
                                   style: const TextStyle(fontSize: 12),
                                 ),
                               if (_liveParsedResult!.accountReference != null)
                                 Text(
-                                  '• Account: ',
+                                  '• Account: ${_liveParsedResult!.accountReference}',
                                   style: const TextStyle(fontSize: 12),
                                 ),
                               if (_liveParsedResult!.reference != null)
                                 Text(
-                                  '• Reference: ',
+                                  '• Reference: ${_liveParsedResult!.reference}',
                                   style: const TextStyle(fontSize: 12),
                                 ),
                             ],

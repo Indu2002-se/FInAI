@@ -1,24 +1,26 @@
 import '../models/detected_transaction.dart';
+import 'native_transaction_capture.dart';
 import 'transaction_parser.dart';
 
 class SmsDatasource {
   Future<bool> hasPermission() async {
-    // Permission placeholder - in real native build, checked via permission_handler or platform channel
-    return true;
+    return NativeTransactionCapture.hasSmsPermission();
   }
 
   Future<bool> requestPermission() async {
-    return true;
+    return NativeTransactionCapture.requestSmsPermission();
   }
 
   DetectedTransactionModel? processIncomingSms({
     required String sender,
     required String messageBody,
+    DateTime? transactionDate,
   }) {
     return TransactionParser.parseMessage(
       body: messageBody,
       sender: sender,
       sourceType: 'SMS',
+      transactionDate: transactionDate,
     );
   }
 

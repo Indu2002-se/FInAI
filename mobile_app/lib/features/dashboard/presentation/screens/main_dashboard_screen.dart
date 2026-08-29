@@ -6,6 +6,7 @@ import '../../../../app/router/route_names.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../data/models/dashboard_model.dart';
 import '../providers/dashboard_provider.dart';
+import '../../../transaction_detection/data/datasources/native_transaction_capture.dart';
 import '../../../transaction_detection/presentation/providers/transaction_detection_provider.dart';
 import '../../../transaction_detection/presentation/widgets/transaction_detection_banner.dart';
 import '../../../authentication/presentation/providers/auth_notifier.dart';
@@ -71,9 +72,48 @@ class _DashboardHeader extends ConsumerWidget {
     return 'Good evening';
   }
 
+  Future<void> _onMessageIconPressed(BuildContext context, WidgetRef ref) async {
+    final hasPermission = await NativeTransactionCapture.hasSmsPermission();
+    final settings = ref.read(detectionSettingsProvider).valueOrNull;
+    final isSmsOff = settings == null || !settings.smsEnabled;
+    if (!hasPermission || isSmsOff) {
+      final granted = await NativeTransactionCapture.requestSmsPermission();
+      final ok = granted || await NativeTransactionCapture.hasSmsPermission();
+      ref.invalidate(smsPermissionGrantedProvider);
+      if (!context.mounted) return;
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'SMS permission is required to detect bank debit and credit messages.',
+            ),
+          ),
+        );
+        return;
+      }
+      final imported = await ref
+          .read(transactionDetectionNotifierProvider.notifier)
+          .enableSmsAndSyncInbox();
+      ref.invalidate(smsPermissionGrantedProvider);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            imported > 0
+                ? 'Message detection is on. Found $imported debit/credit SMS.'
+                : 'Message detection is on. New bank SMS will appear here.',
+          ),
+        ),
+      );
+    }
+    if (!context.mounted) return;
+    context.push(RouteNames.detectedTransactions);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final needsAllow = ref.watch(needsSmsAllowPromptProvider);
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: AppTheme.spacing16, vertical: AppTheme.spacing12),
@@ -100,14 +140,43 @@ class _DashboardHeader extends ConsumerWidget {
                   ),
                 ),
                 Stack(
+                  clipBehavior: Clip.none,
                   children: [
                     IconButton(
-                      tooltip: 'Auto-Detected Transactions',
-                      onPressed: () => context.push(RouteNames.detectedTransactions),
-                      icon: Icon(Icons.sms_outlined,
-                          color: AppColors.white, size: 24),
+                      tooltip: needsAllow
+                          ? 'Allow Messages'
+                          : 'Auto-Detected Transactions',
+                      onPressed: () => _onMessageIconPressed(context, ref),
+                      icon: Icon(
+                        Icons.sms_outlined,
+                        color: AppColors.white,
+                        size: 24,
+                      ),
                     ),
-                    if (pendingCount > 0)
+                    if (needsAllow)
+                      Positioned(
+                        right: 0,
+                        top: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.orange,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'Allow Messages',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      )
+                    else if (pendingCount > 0)
                       Positioned(
                         right: 6,
                         top: 6,

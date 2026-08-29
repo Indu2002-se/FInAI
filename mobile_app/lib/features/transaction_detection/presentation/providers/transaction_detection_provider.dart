@@ -29,9 +29,32 @@ final detectionSettingsProvider =
   return repo.getSettings();
 });
 
+/// Whether the OS has granted READ/RECEIVE SMS for transaction detection.
+final smsPermissionGrantedProvider =
+    FutureProvider.autoDispose<bool>((ref) async {
+  return NativeTransactionCapture.hasSmsPermission();
+});
+
 final pendingCountProvider = Provider.autoDispose<int>((ref) {
   final pendingAsync = ref.watch(pendingDetectedTransactionsProvider);
   return pendingAsync.value?.length ?? 0;
+});
+
+/// True when the user hasn't enabled SMS detection or hasn't granted OS permission.
+final needsSmsAllowPromptProvider = Provider.autoDispose<bool>((ref) {
+  final settingsAsync = ref.watch(detectionSettingsProvider);
+  final permissionAsync = ref.watch(smsPermissionGrantedProvider);
+
+  final isSmsEnabled = settingsAsync.maybeWhen(
+    data: (s) => s.smsEnabled,
+    orElse: () => false,
+  );
+  final isPermissionGranted = permissionAsync.maybeWhen(
+    data: (granted) => granted,
+    orElse: () => false,
+  );
+
+  return !isSmsEnabled || !isPermissionGranted;
 });
 
 class TransactionDetectionNotifier extends StateNotifier<AsyncValue<void>> {
@@ -109,6 +132,17 @@ class TransactionDetectionNotifier extends StateNotifier<AsyncValue<void>> {
     return recordTransaction(parsed);
   }
 
+  DateTime? _extractEventDate(Map<String, dynamic> event) {
+    final atMs = event['receivedAtMs'];
+    if (atMs != null) {
+      final ms = int.tryParse(atMs.toString());
+      if (ms != null && ms > 0) {
+        return DateTime.fromMillisecondsSinceEpoch(ms);
+      }
+    }
+    return null;
+  }
+
   /// Enable SMS detection and import debit/credit SMS from the full recent inbox.
   Future<int> enableSmsAndSyncInbox() async {
     final current = await repo.getSettings();
@@ -118,26 +152,127 @@ class TransactionDetectionNotifier extends StateNotifier<AsyncValue<void>> {
     final hasPermission = await NativeTransactionCapture.hasSmsPermission();
     if (!hasPermission) return 0;
 
+    await NativeTransactionCapture.startSmsListener();
+
     // Full recent-inbox scan (sinceMs=0 → last 365 days on Android).
     await NativeTransactionCapture.setLastSmsSyncMs(0);
     final inbox = await NativeTransactionCapture.readSmsInbox(sinceMs: 0);
-    var saved = 0;
-    for (final event in inbox) {
+    final queued = await NativeTransactionCapture.drainPendingEvents();
+    final allEvents = <Map<String, dynamic>>[...queued, ...inbox];
+
+    final toRecord = <DetectedTransactionModel>[];
+    final seenHashes = <String>{};
+
+    for (final event in allEvents) {
+      final text = event['text']?.toString() ?? '';
+      if (text.isEmpty) continue;
       final parsed = smsDatasource.processIncomingSms(
         sender: event['sender']?.toString() ?? 'Unknown sender',
-        messageBody: event['text']?.toString() ?? '',
+        messageBody: text,
+        transactionDate: _extractEventDate(event),
       );
       if (parsed == null) continue;
-      // Debit / credit / transfer only (parser already filters UNKNOWN).
-      final result = await recordTransaction(parsed);
-      if (result != null && result.status != 'DUPLICATE') saved++;
+      // Debit & credit only.
+      if (parsed.transactionType != 'DEBIT' &&
+          parsed.transactionType != 'CREDIT') {
+        continue;
+      }
+      final hash = parsed.rawTextHash;
+      if (hash != null && seenHashes.add(hash)) {
+        toRecord.add(parsed);
+      }
     }
+
+    var saved = 0;
+    if (toRecord.isNotEmpty) {
+      try {
+        final savedList = await repo.recordBatchDetectedTransactions(toRecord);
+        saved = savedList.where((e) => e.status != 'DUPLICATE').length;
+      } catch (_) {
+        for (final item in toRecord) {
+          try {
+            final res = await repo.recordDetectedTransaction(item);
+            if (res.status != 'DUPLICATE') saved++;
+          } catch (_) {}
+        }
+      }
+    }
+
     await NativeTransactionCapture.setLastSmsSyncMs(
       DateTime.now().millisecondsSinceEpoch,
     );
     ref.invalidate(pendingDetectedTransactionsProvider);
     ref.invalidate(allDetectedTransactionsProvider);
+    ref.invalidate(pendingCountProvider);
     return saved;
+  }
+
+  /// Sync any new SMS messages received while logged out or in background.
+  Future<int> syncNewSmsMessages() async {
+    try {
+      final settings = await repo.getSettings();
+      if (!settings.smsEnabled) return 0;
+
+      final hasPermission = await NativeTransactionCapture.hasSmsPermission();
+      if (!hasPermission) return 0;
+
+      await NativeTransactionCapture.startSmsListener();
+
+      final lastSync = await NativeTransactionCapture.getLastSmsSyncMs();
+      final sinceMs = lastSync > 5000 ? lastSync - 5000 : 0;
+      final inbox = await NativeTransactionCapture.readSmsInbox(sinceMs: sinceMs);
+      final queued = await NativeTransactionCapture.drainPendingEvents();
+      final allEvents = <Map<String, dynamic>>[...queued, ...inbox];
+
+      if (allEvents.isEmpty) return 0;
+
+      final toRecord = <DetectedTransactionModel>[];
+      final seenHashes = <String>{};
+
+      for (final event in allEvents) {
+        final text = event['text']?.toString() ?? '';
+        if (text.isEmpty) continue;
+        final parsed = smsDatasource.processIncomingSms(
+          sender: event['sender']?.toString() ?? 'Unknown sender',
+          messageBody: text,
+          transactionDate: _extractEventDate(event),
+        );
+        if (parsed == null) continue;
+        if (parsed.transactionType != 'DEBIT' &&
+            parsed.transactionType != 'CREDIT') {
+          continue;
+        }
+        final hash = parsed.rawTextHash;
+        if (hash != null && seenHashes.add(hash)) {
+          toRecord.add(parsed);
+        }
+      }
+
+      var saved = 0;
+      if (toRecord.isNotEmpty) {
+        try {
+          final savedList = await repo.recordBatchDetectedTransactions(toRecord);
+          saved = savedList.where((e) => e.status != 'DUPLICATE').length;
+        } catch (_) {
+          for (final item in toRecord) {
+            try {
+              final res = await repo.recordDetectedTransaction(item);
+              if (res.status != 'DUPLICATE') saved++;
+            } catch (_) {}
+          }
+        }
+      }
+
+      await NativeTransactionCapture.setLastSmsSyncMs(
+        DateTime.now().millisecondsSinceEpoch,
+      );
+      ref.invalidate(pendingDetectedTransactionsProvider);
+      ref.invalidate(allDetectedTransactionsProvider);
+      ref.invalidate(pendingCountProvider);
+      return saved;
+    } catch (_) {
+      return 0;
+    }
   }
 
   Future<bool> updateSettings(DetectionSettingsModel settings) async {
