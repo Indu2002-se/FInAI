@@ -221,7 +221,7 @@ class ProfileScreen extends ConsumerWidget {
                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                   ),
                   subtitle: const Text(
-                    'Track targets & Gemini AI strategy roadmaps',
+                    'Track targets & AI strategy roadmaps',
                     style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                   trailing: const Icon(Icons.chevron_right, color: Colors.grey),

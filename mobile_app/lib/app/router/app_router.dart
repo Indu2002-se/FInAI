@@ -262,7 +262,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.monthlyReport,
         name: 'monthly-report',
-        builder: (context, state) => const MonthlyReportScreen(),
+        builder: (context, state) => MonthlyReportScreen(
+          month: state.uri.queryParameters['month'],
+        ),
       ),
 
       // ==================== Savings Goals Routes ====================

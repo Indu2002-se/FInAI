@@ -7,8 +7,8 @@ class DetectionSettingsModel {
 
   DetectionSettingsModel({
     required this.id,
-    this.smsEnabled = false,
-    this.notificationEnabled = false,
+    this.smsEnabled = true,
+    this.notificationEnabled = true,
     this.confirmationRequired = true,
     this.updatedAt,
   });
@@ -16,8 +16,8 @@ class DetectionSettingsModel {
   factory DetectionSettingsModel.fromJson(Map<String, dynamic> json) {
     return DetectionSettingsModel(
       id: json['id'] as int? ?? 0,
-      smsEnabled: json['smsEnabled'] as bool? ?? false,
-      notificationEnabled: json['notificationEnabled'] as bool? ?? false,
+      smsEnabled: json['smsEnabled'] as bool? ?? true,
+      notificationEnabled: json['notificationEnabled'] as bool? ?? true,
       confirmationRequired: json['confirmationRequired'] as bool? ?? true,
       updatedAt: json['updatedAt']?.toString(),
     );

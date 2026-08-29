@@ -149,12 +149,38 @@ void main() {
 
       expect(find.text('Insufficient Expense History'), findsOneWidget);
       expect(
-          find.text(
-              'At least 3 months of recorded expenses are needed to generate an AI forecast. Please continue logging your monthly expenses.'),
+          find.textContaining('3 different calendar months'),
           findsOneWidget);
 
-      await tester.tap(find.text('Add 3 Months of Expenses'));
+      await tester.tap(find.text('Add Expenses'));
       expect(addExpensesClicked, isTrue);
+    });
+
+    testWidgets('displays RULE_FALLBACK forecast with estimate disclaimer',
+        (WidgetTester tester) async {
+      final forecast = ExpenseForecastModel(
+        food: [],
+        nonFood: [],
+        total: [
+          ForecastPointModel(
+              date: '2026-10-01', predictedAmount: 45000, lowerBound: 40000, upperBound: 50000)
+        ],
+        inferenceSource: 'RULE_FALLBACK',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ForecastChart(forecast: forecast),
+          ),
+        ),
+      );
+
+      expect(find.textContaining('Unable to Generate Forecast'), findsNothing);
+      expect(
+          find.textContaining('Estimate based on your recent spending'),
+          findsOneWidget);
+      expect(find.text('Rs.45000'), findsNWidgets(2));
     });
   });
 

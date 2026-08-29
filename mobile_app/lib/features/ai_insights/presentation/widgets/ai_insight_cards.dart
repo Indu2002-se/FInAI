@@ -229,7 +229,7 @@ class ForecastChart extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'At least 3 months of recorded expenses are needed to generate an AI forecast. Please continue logging your monthly expenses.',
+              'Add expenses across at least 3 different calendar months (for example Jan, Feb, and Mar). Expenses only in the current month will not unlock the forecast.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13, color: Colors.grey.shade800),
             ),
@@ -242,7 +242,7 @@ class ForecastChart extends StatelessWidget {
                   foregroundColor: Colors.white,
                 ),
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('Add 3 Months of Expenses'),
+                label: const Text('Add Expenses'),
               ),
             ],
           ],
@@ -250,7 +250,13 @@ class ForecastChart extends StatelessWidget {
       );
     }
 
-    if (source == 'MODEL_UNAVAILABLE') {
+    final totalList = forecast.total;
+    final hasForecastPoints = totalList.isNotEmpty;
+    final isRuleFallback = source == 'RULE_FALLBACK';
+    final isModelUnavailable = source == 'MODEL_UNAVAILABLE';
+
+    // Offline with no usable numbers — show service message only.
+    if (isModelUnavailable && !hasForecastPoints) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -282,7 +288,12 @@ class ForecastChart extends StatelessWidget {
       );
     }
 
-    if (source != 'ML_MODEL') {
+    // RULE_FALLBACK / ML_MODEL (and MODEL_UNAVAILABLE with data) should render the chart.
+    final canShowForecast = source == 'ML_MODEL' ||
+        (isRuleFallback && hasForecastPoints) ||
+        (isModelUnavailable && hasForecastPoints);
+
+    if (!canShowForecast) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.all(20),
@@ -308,15 +319,42 @@ class ForecastChart extends StatelessWidget {
       );
     }
 
-    // Default ML_MODEL view
-    final totalList = forecast.total;
-    final nextMonth = totalList.isNotEmpty ? totalList.first : null;
+    final nextMonth = hasForecastPoints ? totalList.first : null;
     final nextMonthAmount = nextMonth?.predictedAmount ?? 0.0;
     final nextMonthDate = nextMonth?.date ?? 'Next Month';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (isRuleFallback || (isModelUnavailable && hasForecastPoints))
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.amber.shade100,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.shade700),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isRuleFallback
+                        ? 'Estimate based on your recent spending (ML model not used yet)'
+                        : 'Estimate based on your recent spending (forecast service offline)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.amber.shade900,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(20),

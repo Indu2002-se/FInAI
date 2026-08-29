@@ -30,8 +30,11 @@ class GoogleAuthService {
       }
 
       final credential = GoogleAuthProvider.credential(idToken: googleIdToken);
-      final userCredential = await _firebaseAuth.signInWithCredential(credential);
-      final firebaseIdToken = await userCredential.user?.getIdToken(true);
+      final userCredential =
+          await _firebaseAuth.signInWithCredential(credential);
+      // Cached token from sign-in is enough — force-refresh adds an extra
+      // Google network round-trip on every login.
+      final firebaseIdToken = await userCredential.user?.getIdToken();
       if (firebaseIdToken == null || firebaseIdToken.isEmpty) {
         throw StateError('Firebase did not return an ID token.');
       }

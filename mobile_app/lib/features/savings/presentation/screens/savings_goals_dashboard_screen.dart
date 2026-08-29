@@ -252,7 +252,7 @@ class SavingsGoalsDashboardScreen extends ConsumerWidget {
                                             size: 16,
                                             color: AppColors.darkTeal),
                                         label: const Text(
-                                          'Generate AI Savings Plan (Gemini)',
+                                          'Generate AI Savings Plan',
                                           style: TextStyle(
                                             fontSize: 12,
                                             fontWeight: FontWeight.w700,

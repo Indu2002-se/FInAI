@@ -1,12 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+
 import '../../../../app/core/widgets/info_card.dart';
 import '../../../../app/core/widgets/bottom_navigation.dart';
+import '../../../../app/router/route_names.dart';
 
 /// Screen 27: Reports Dashboard
 class ReportsDashboardScreen extends ConsumerWidget {
   const ReportsDashboardScreen({super.key});
+
+  String get _currentMonthLabel {
+    return DateFormat('MMMM yyyy').format(DateTime.now());
+  }
+
+  String get _currentMonthParam {
+    return DateFormat('yyyy-MM').format(DateTime.now());
+  }
+
+  void _openMonthlyReport(BuildContext context) {
+    context.push('${RouteNames.monthlyReport}?month=$_currentMonthParam');
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -48,30 +63,30 @@ class ReportsDashboardScreen extends ConsumerWidget {
           children: [
             InfoCard(
               title: 'Monthly Financial Report',
-              subtitle: 'August 2026',
+              subtitle: _currentMonthLabel,
               leading: const Icon(Icons.description, color: Colors.blue, size: 28),
-              onTap: () {},
+              onTap: () => _openMonthlyReport(context),
             ),
             const SizedBox(height: 16),
             InfoCard(
               title: 'Income vs Expense',
-              subtitle: 'Last 6 months',
+              subtitle: _currentMonthLabel,
               leading: const Icon(Icons.bar_chart, color: Colors.green, size: 28),
-              onTap: () {},
+              onTap: () => _openMonthlyReport(context),
             ),
             const SizedBox(height: 16),
             InfoCard(
               title: 'Category Breakdown',
               subtitle: 'This month',
               leading: const Icon(Icons.pie_chart, color: Colors.orange, size: 28),
-              onTap: () {},
+              onTap: () => _openMonthlyReport(context),
             ),
             const SizedBox(height: 16),
             InfoCard(
               title: 'Savings Progress',
-              subtitle: 'Year to date',
+              subtitle: _currentMonthLabel,
               leading: const Icon(Icons.trending_up, color: Colors.teal, size: 28),
-              onTap: () {},
+              onTap: () => _openMonthlyReport(context),
             ),
           ],
         ),

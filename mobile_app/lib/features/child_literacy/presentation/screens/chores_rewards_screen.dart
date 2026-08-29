@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../app/router/route_names.dart';
 import '../../data/models/child_models.dart';
 import '../providers/child_provider.dart';
 
@@ -35,7 +37,7 @@ class ChoresRewardsScreen extends ConsumerWidget {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'TASKS & REWARDS',
+          'QUIZZES & BADGES',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,
@@ -99,7 +101,7 @@ class ChoresRewardsScreen extends ConsumerWidget {
 
                 // ── Available Tasks (incomplete quizzes) ──
                 const Text(
-                  'AVAILABLE TASKS',
+                  'AVAILABLE QUIZZES',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
@@ -138,7 +140,7 @@ class ChoresRewardsScreen extends ConsumerWidget {
                     }
                     return Column(
                       children: pending
-                          .map((q) => _buildTaskCard(q))
+                          .map((q) => _buildTaskCard(context, q))
                           .toList(),
                     );
                   },
@@ -197,9 +199,12 @@ class ChoresRewardsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTaskCard(ChildQuizModel quiz) {
+  Widget _buildTaskCard(BuildContext context, ChildQuizModel quiz) {
     final diffColor = _difficultyColor(quiz.difficulty);
-    return Container(
+    return InkWell(
+      onTap: () => context.push(RouteNames.financialQuiz),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -262,6 +267,7 @@ class ChoresRewardsScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
       ),
     );
   }

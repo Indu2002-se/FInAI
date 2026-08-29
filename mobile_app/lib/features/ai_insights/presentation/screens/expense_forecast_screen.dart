@@ -71,7 +71,8 @@ class ExpenseForecastScreen extends ConsumerWidget {
                       context.push(RouteNames.addExpense);
                     },
                   ),
-                  if (forecast.inferenceSource == 'ML_MODEL') ...[
+                  if (forecast.inferenceSource == 'ML_MODEL' ||
+                      forecast.inferenceSource == 'RULE_FALLBACK') ...[
                     const SizedBox(height: 24),
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -86,7 +87,9 @@ class ExpenseForecastScreen extends ConsumerWidget {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'Prophet ML time-series forecast generated from your spending history and demographic profiles.',
+                              forecast.inferenceSource == 'ML_MODEL'
+                                  ? 'Prophet ML time-series forecast generated from your spending history.'
+                                  : 'Showing a spending-based estimate. Full ML forecast appears after the AI service processes your history.',
                               style: TextStyle(fontSize: 12, color: Colors.grey[800]),
                             ),
                           ),

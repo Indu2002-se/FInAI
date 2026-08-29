@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/core/constants/validators.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../child_literacy/presentation/providers/child_selection_provider.dart';
 import '../providers/auth_notifier.dart';
 import '../providers/auth_state.dart';
 
@@ -49,8 +50,8 @@ class _ChildLoginScreenState extends ConsumerState<ChildLoginScreen> {
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       next.whenOrNull(
         authenticated: (user) {
-          // Route based on user type
           if (user.isChild) {
+            ref.read(selectedChildProvider.notifier).state = null;
             context.go('/child');
           } else {
             context.go('/dashboard');

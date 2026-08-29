@@ -54,7 +54,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       next.whenOrNull(
         authenticated: (user) {
-          context.go('/dashboard');
+          // Google signup (new / incomplete profile) → wizard
+          // Google sign-in (profile already complete) → dashboard
+          if (user.profileComplete) {
+            context.go(RouteNames.dashboard);
+          } else {
+            context.go(RouteNames.onboardingWelcome);
+          }
         },
         error: (message) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -109,11 +115,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             ),
           ),
 
-          // 3. Main Content
+          // 3. Main Content — scrollable so the keyboard cannot overflow
           SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+                return SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: bottomInset),
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                 // Top Brand Header
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -376,7 +392,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                   ),
                 ),
-              ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
           ),
         ],

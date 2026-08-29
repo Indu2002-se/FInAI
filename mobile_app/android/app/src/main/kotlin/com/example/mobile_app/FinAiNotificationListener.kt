@@ -10,11 +10,14 @@ class FinAiNotificationListener : NotificationListenerService() {
         val title = extras.getCharSequence("android.title")?.toString().orEmpty()
         val text = extras.getCharSequence("android.text")?.toString().orEmpty()
         if (title.isBlank() && text.isBlank()) return
-        TransactionCaptureEvents.emit(mapOf(
+
+        val event = mapOf(
             "sourceType" to "NOTIFICATION",
             "packageName" to sbn.packageName,
             "title" to title,
             "text" to text,
-        ))
+            "receivedAtMs" to System.currentTimeMillis().toString(),
+        )
+        TransactionCaptureEvents.emitOrQueue(applicationContext, event)
     }
 }

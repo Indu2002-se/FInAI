@@ -20,6 +20,8 @@ class _DetectedTransactionsPageState extends ConsumerState<DetectedTransactionsP
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final NumberFormat _currencyFmt = NumberFormat.currency(symbol: 'Rs. ', decimalDigits: 2);
+  /// 0 = All, 1 = Expense (DEBIT), 2 = Income (CREDIT)
+  int _typeFilter = 0;
 
   @override
   void initState() {
@@ -31,6 +33,46 @@ class _DetectedTransactionsPageState extends ConsumerState<DetectedTransactionsP
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  List<DetectedTransactionModel> _applyTypeFilter(List<DetectedTransactionModel> items) {
+    switch (_typeFilter) {
+      case 1:
+        return items.where((e) => e.transactionType == 'DEBIT').toList();
+      case 2:
+        return items.where((e) => e.transactionType == 'CREDIT').toList();
+      default:
+        return items;
+    }
+  }
+
+  Widget _buildTypeFilterChips() {
+    Widget chip(String label, int value) {
+      final selected = _typeFilter == value;
+      return ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => setState(() => _typeFilter = value),
+        selectedColor: AppColors.darkTeal.withOpacity(0.2),
+        labelStyle: TextStyle(
+          fontWeight: FontWeight.w600,
+          fontSize: 12,
+          color: selected ? AppColors.darkTeal : AppColors.mediumGrey,
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Wrap(
+        spacing: 8,
+        children: [
+          chip('All', 0),
+          chip('Expense', 1),
+          chip('Income', 2),
+        ],
+      ),
+    );
   }
 
   @override
@@ -96,11 +138,18 @@ class _DetectedTransactionsPageState extends ConsumerState<DetectedTransactionsP
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          _buildPendingTab(pendingAsync),
-          _buildHistoryTab(allAsync),
+          _buildTypeFilterChips(),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildPendingTab(pendingAsync),
+                _buildHistoryTab(allAsync),
+              ],
+            ),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -136,7 +185,8 @@ class _DetectedTransactionsPageState extends ConsumerState<DetectedTransactionsP
         ),
       ),
       data: (items) {
-        if (items.isEmpty) {
+        final filtered = _applyTypeFilter(items);
+        if (filtered.isEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(32),
@@ -145,22 +195,26 @@ class _DetectedTransactionsPageState extends ConsumerState<DetectedTransactionsP
                 children: [
                   Icon(Icons.mark_email_read_outlined, size: 64, color: AppColors.darkTeal.withOpacity(0.5)),
                   const SizedBox(height: 16),
-                  const Text(
-                    'No Pending Transactions',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  Text(
+                    items.isEmpty ? 'No Pending Transactions' : 'No matches for this filter',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'New bank SMS messages or notifications will appear here for one-tap confirmation.',
+                    items.isEmpty
+                        ? 'New bank SMS messages or notifications will appear here for one-tap confirmation.'
+                        : 'Try All, or switch Expense / Income.',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: AppColors.mediumGrey, fontSize: 13),
                   ),
-                  const SizedBox(height: 24),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.add_to_photos_outlined),
-                    label: const Text('Test with Sample SMS'),
-                    onPressed: _showSimulationDialog,
-                  ),
+                  if (items.isEmpty) ...[
+                    const SizedBox(height: 24),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.add_to_photos_outlined),
+                      label: const Text('Test with Sample SMS'),
+                      onPressed: _showSimulationDialog,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -169,9 +223,9 @@ class _DetectedTransactionsPageState extends ConsumerState<DetectedTransactionsP
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: items.length,
+          itemCount: filtered.length,
           itemBuilder: (context, index) {
-            final item = items[index];
+            final item = filtered[index];
             return _buildTransactionCard(item, isPending: true);
           },
         );
@@ -184,14 +238,21 @@ class _DetectedTransactionsPageState extends ConsumerState<DetectedTransactionsP
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (items) {
-        if (items.isEmpty) {
-          return const Center(child: Text('No detected transaction history yet.'));
+        final filtered = _applyTypeFilter(items);
+        if (filtered.isEmpty) {
+          return Center(
+            child: Text(
+              items.isEmpty
+                  ? 'No detected transaction history yet.'
+                  : 'No matches for this filter.',
+            ),
+          );
         }
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: items.length,
+          itemCount: filtered.length,
           itemBuilder: (context, index) {
-            final item = items[index];
+            final item = filtered[index];
             return _buildTransactionCard(item, isPending: false);
           },
         );
@@ -331,20 +392,21 @@ class _DetectedTransactionsPageState extends ConsumerState<DetectedTransactionsP
               // Action Buttons for Pending item
               Row(
                 children: [
-                  Expanded(
-                    flex: 3,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: isDebit ? AppColors.darkTeal : AppColors.success,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  if (isDebit || isCredit)
+                    Expanded(
+                      flex: 3,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isDebit ? AppColors.darkTeal : AppColors.success,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: Icon(isDebit ? Icons.add_shopping_cart : Icons.add_card, size: 16),
+                        label: Text(isDebit ? 'Add Expense' : 'Add Income'),
+                        onPressed: () => _confirmDirect(item),
                       ),
-                      icon: Icon(isDebit ? Icons.add_shopping_cart : Icons.add_card, size: 16),
-                      label: Text(isDebit ? 'Add Expense' : 'Add Income'),
-                      onPressed: () => _confirmDirect(item),
                     ),
-                  ),
-                  const SizedBox(width: 8),
+                  if (isDebit || isCredit) const SizedBox(width: 8),
                   Expanded(
                     flex: 2,
                     child: OutlinedButton(

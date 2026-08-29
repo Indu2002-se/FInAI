@@ -46,7 +46,7 @@ final parentViewChildDashboardProvider =
 final selectedChildDashboardProvider =
     FutureProvider.autoDispose<ChildDashboardModel>((ref) async {
   final selectedChild = ref.watch(selectedChildProvider);
-  
+
   if (selectedChild == null) {
     throw Exception('No child selected');
   }

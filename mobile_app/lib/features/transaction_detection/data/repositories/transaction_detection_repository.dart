@@ -31,7 +31,7 @@ class TransactionDetectionRepository {
 
   Future<DetectedTransactionModel> getDetectedTransactionById(int id) async {
     final response = await dioClient.get<Map<String, dynamic>>(
-      endpoint: '/v1/transactions/detected/',
+      endpoint: '/v1/transactions/detected/$id',
     );
     return DetectedTransactionModel.fromJson(response['data'] as Map<String, dynamic>);
   }
@@ -59,7 +59,7 @@ class TransactionDetectionRepository {
   Future<DetectedTransactionModel> updateDetectedTransaction(
       int id, DetectedTransactionModel item) async {
     final response = await dioClient.put<Map<String, dynamic>>(
-      endpoint: '/v1/transactions/detected/',
+      endpoint: '/v1/transactions/detected/$id',
       data: item.toJson(),
     );
     return DetectedTransactionModel.fromJson(response['data'] as Map<String, dynamic>);
@@ -68,7 +68,7 @@ class TransactionDetectionRepository {
   Future<DetectedTransactionModel> confirmTransaction(
       int id, ConfirmTransactionPayload payload) async {
     final response = await dioClient.post<Map<String, dynamic>>(
-      endpoint: '/v1/transactions/detected//confirm',
+      endpoint: '/v1/transactions/detected/$id/confirm',
       data: payload.toJson(),
     );
     return DetectedTransactionModel.fromJson(response['data'] as Map<String, dynamic>);
@@ -76,7 +76,7 @@ class TransactionDetectionRepository {
 
   Future<DetectedTransactionModel> ignoreTransaction(int id) async {
     final response = await dioClient.post<Map<String, dynamic>>(
-      endpoint: '/v1/transactions/detected//ignore',
+      endpoint: '/v1/transactions/detected/$id/ignore',
     );
     return DetectedTransactionModel.fromJson(response['data'] as Map<String, dynamic>);
   }

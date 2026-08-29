@@ -88,9 +88,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       next.whenOrNull(
         authenticated: (user) {
           if (user.profileComplete) {
-            context.go('/dashboard');
+            context.go(RouteNames.dashboard);
           } else {
-            context.go('/onboarding/welcome');
+            context.go(RouteNames.onboardingWelcome);
           }
         },
         error: (message) {

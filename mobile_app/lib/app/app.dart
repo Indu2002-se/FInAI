@@ -16,22 +16,75 @@ class App extends ConsumerStatefulWidget {
   ConsumerState<App> createState() => _AppState();
 }
 
-class _AppState extends ConsumerState<App> {
+class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
   StreamSubscription<Map<String, dynamic>>? _captureSubscription;
+  bool _syncInProgress = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _captureSubscription = NativeTransactionCapture.events.listen(
       _recordCapturedTransaction,
     );
+    // Catch up after first frame so auth/token are ready.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_syncCapturedTransactions());
+    });
   }
 
-  Future<void> _recordCapturedTransaction(Map<String, dynamic> event) async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_syncCapturedTransactions());
+    }
+  }
+
+  /// Drain queued closed-app events + scan SMS inbox for transaction-like messages.
+  Future<void> _syncCapturedTransactions() async {
+    if (_syncInProgress) return;
+    _syncInProgress = true;
+    try {
+      final settings = await ref.read(detectionSettingsProvider.future);
+
+      if (settings.smsEnabled || settings.notificationEnabled) {
+        final queued = await NativeTransactionCapture.drainPendingEvents();
+        for (final event in queued) {
+          await _recordCapturedTransaction(event, settingsOverride: settings);
+        }
+      }
+
+      if (settings.smsEnabled) {
+        final hasPermission = await NativeTransactionCapture.hasSmsPermission();
+        if (!hasPermission) {
+          await NativeTransactionCapture.requestSmsPermission();
+        }
+        if (await NativeTransactionCapture.hasSmsPermission()) {
+          final lastSync = await NativeTransactionCapture.getLastSmsSyncMs();
+          final inbox = await NativeTransactionCapture.readSmsInbox(sinceMs: lastSync);
+          for (final event in inbox) {
+            await _recordCapturedTransaction(event, settingsOverride: settings);
+          }
+          await NativeTransactionCapture.setLastSmsSyncMs(
+            DateTime.now().millisecondsSinceEpoch,
+          );
+        }
+      }
+    } catch (e, st) {
+      debugPrint('Transaction capture sync failed: $e\n$st');
+    } finally {
+      _syncInProgress = false;
+    }
+  }
+
+  Future<void> _recordCapturedTransaction(
+    Map<String, dynamic> event, {
+    dynamic settingsOverride,
+  }) async {
     final sourceType = event['sourceType']?.toString();
     if (sourceType == null) return;
 
-    final settings = await ref.read(detectionSettingsProvider.future);
+    final settings = settingsOverride ?? await ref.read(detectionSettingsProvider.future);
     if ((sourceType == 'SMS' && !settings.smsEnabled) ||
         (sourceType == 'NOTIFICATION' && !settings.notificationEnabled)) {
       return;
@@ -61,6 +114,7 @@ class _AppState extends ConsumerState<App> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _captureSubscription?.cancel();
     super.dispose();
   }

@@ -5,7 +5,6 @@ import '../../../../app/core/widgets/custom_button.dart';
 import '../../../../app/core/widgets/custom_text_field.dart';
 import '../../../../app/core/widgets/progress_bar.dart';
 import '../../../../app/theme/app_theme.dart';
-import '../../../authentication/presentation/providers/auth_notifier.dart';
 import '../../../savings/data/models/savings_model.dart';
 import '../../data/repositories/child_repository.dart';
 import '../providers/child_provider.dart';
@@ -95,15 +94,13 @@ class _ChildSavingsGoalScreenState
     setState(() => _isAddingMoney = true);
     try {
       final repo = ref.read(childRepositoryProvider);
-      final targetChildId = childId ?? goal.childProfileId ?? 0;
+      final selectedChild = ref.read(selectedChildProvider);
+      final targetChildId = childId ?? selectedChild?.id ?? goal.childProfileId;
 
-      if (targetChildId > 0) {
-        await repo.updateGoalProgress(targetChildId, goal.id, amount);
-      }
+      await repo.updateGoalProgress(targetChildId, goal.id, amount);
 
-      // Invalidate dashboards to refresh live amounts
       ref.invalidate(childDashboardProvider);
-      if (targetChildId > 0) {
+      if (targetChildId != null) {
         ref.invalidate(parentViewChildDashboardProvider(targetChildId));
       }
 
@@ -115,6 +112,7 @@ class _ChildSavingsGoalScreenState
             backgroundColor: Colors.green,
           ),
         );
+        context.pop();
       }
     } catch (e) {
       if (mounted) {
@@ -132,7 +130,6 @@ class _ChildSavingsGoalScreenState
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authNotifierProvider);
     final selectedChild = ref.watch(selectedChildProvider);
 
     // If goal was passed in via navigation, use it
@@ -142,15 +139,7 @@ class _ChildSavingsGoalScreenState
     }
 
     // Otherwise load dashboard goals
-    final dashboardAsync = authState.maybeWhen(
-      authenticated: (user) {
-        if (user.isParent && selectedChild != null) {
-          return ref.watch(parentViewChildDashboardProvider(selectedChild.id));
-        }
-        return ref.watch(childDashboardProvider);
-      },
-      orElse: () => throw Exception('Not authenticated'),
-    );
+    final dashboardAsync = ref.watch(childDashboardProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,

@@ -585,7 +585,7 @@ class _DashboardBody extends ConsumerWidget {
                   ),
                   SizedBox(height: AppTheme.spacing4),
                   Text(
-                    'Track savings targets with customized Gemini AI reports and month-by-month strategy roadmaps.',
+                    'Track savings targets with customized AI reports and month-by-month strategy roadmaps.',
                     style: TextStyle(
                         fontSize: 12, color: AppColors.mediumGrey, height: 1.3),
                   ),

@@ -6,8 +6,99 @@ import '../../../../app/core/widgets/progress_bar.dart';
 import '../../../../app/router/route_names.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../authentication/presentation/providers/auth_notifier.dart';
+import '../../data/repositories/child_repository.dart';
 import '../providers/child_provider.dart';
 import '../providers/child_selection_provider.dart';
+
+Future<void> _showCreateGoalDialog(
+  BuildContext context,
+  WidgetRef ref,
+  int childId,
+) async {
+  final titleController = TextEditingController();
+  final amountController = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+
+  final created = await showDialog<bool>(
+    context: context,
+    builder: (dialogCtx) => AlertDialog(
+      title: const Text('Add Savings Goal',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+      content: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: titleController,
+              decoration: const InputDecoration(labelText: 'Goal title'),
+              validator: (v) =>
+                  (v == null || v.trim().isEmpty) ? 'Enter a title' : null,
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: amountController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Target amount (Rs.)'),
+              validator: (v) {
+                final n = double.tryParse(v?.trim() ?? '');
+                if (n == null || n <= 0) return 'Enter a valid amount';
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogCtx, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            if (formKey.currentState?.validate() ?? false) {
+              Navigator.pop(dialogCtx, true);
+            }
+          },
+          child: const Text('Create'),
+        ),
+      ],
+    ),
+  );
+
+  if (created != true) return;
+
+  try {
+    final repo = ref.read(childRepositoryProvider);
+    await repo.createChildSavingsGoal(
+      childId,
+      ChildSavingsGoalModel(
+        goalName: titleController.text.trim(),
+        targetAmount: double.parse(amountController.text.trim()),
+        currentAmount: 0,
+        category: 'Toy / Reward',
+      ),
+    );
+    ref.invalidate(childDashboardProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Savings goal created'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to create goal: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+}
 
 /// Screen 32: Child Savings Dashboard
 /// Displays child's savings, goals, and activities
@@ -18,21 +109,23 @@ class ChildSavingsDashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authNotifierProvider);
     final selectedChild = ref.watch(selectedChildProvider);
-    
-    // Determine which dashboard to load
-    final dashboardAsync = authState.maybeWhen(
-      authenticated: (user) {
-        if (user.isParent && selectedChild != null) {
-          // Parent viewing child dashboard
-          return ref.watch(parentViewChildDashboardProvider(selectedChild.id));
-        } else if (user.isChild) {
-          // Child viewing own dashboard
-          return ref.watch(childDashboardProvider);
-        }
-        throw Exception('Invalid user state');
-      },
-      orElse: () => throw Exception('Not authenticated'),
+
+    final isParentWithoutChild = authState.maybeWhen(
+      authenticated: (user) => user.isParent && selectedChild == null,
+      orElse: () => false,
     );
+    if (isParentWithoutChild) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          context.go(RouteNames.childProfileSelector);
+        }
+      });
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final dashboardAsync = ref.watch(childDashboardProvider);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -49,13 +142,13 @@ class ChildSavingsDashboardScreen extends ConsumerWidget {
             child: const Icon(Icons.arrow_back, color: Colors.black87, size: 16),
           ),
           onPressed: () {
-            // Parent goes back to child selector, child goes to main menu
             authState.whenOrNull(
               authenticated: (user) {
                 if (user.isParent) {
                   context.go(RouteNames.childProfileSelector);
                 } else {
-                  context.pop();
+                  ref.read(authNotifierProvider.notifier).logout();
+                  context.go(RouteNames.userTypeSelection);
                 }
               },
             );
@@ -154,11 +247,7 @@ class ChildSavingsDashboardScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () {
-                      // Refresh
                       ref.invalidate(childDashboardProvider);
-                      if (selectedChild != null) {
-                        ref.invalidate(parentViewChildDashboardProvider(selectedChild.id));
-                      }
                     },
                     child: const Text('Retry'),
                   ),
@@ -218,15 +307,15 @@ class ChildSavingsDashboardScreen extends ConsumerWidget {
                     // Edit button for parents
                     authState.maybeWhen(
                       authenticated: (user) {
-                        if (user.isParent) {
+                        if (user.isParent && selectedChild != null) {
                           return GestureDetector(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Edit child goals feature coming soon')),
-                              );
-                            },
+                            onTap: () => _showCreateGoalDialog(
+                              context,
+                              ref,
+                              selectedChild.id,
+                            ),
                             child: Text(
-                              'Edit',
+                              'Add Goal',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
@@ -286,7 +375,7 @@ class ChildSavingsDashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
 
                 InfoCard(
-                  title: 'Tasks & Badges',
+                  title: 'Quizzes & Badges',
                   subtitle: '${dashboard.recommendedQuizzes.length} quizzes available',
                   leading: const Icon(Icons.task_alt, color: Colors.blue, size: 28),
                   onTap: () => context.push(RouteNames.choresRewards),

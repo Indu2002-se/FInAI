@@ -36,6 +36,11 @@ class TransactionParser {
       return null;
     }
 
+    // Only keep bank/transaction-like messages (amount + debit/credit/transfer cues)
+    if (transactionType == 'UNKNOWN') {
+      return null;
+    }
+
     // 2. Merchant / Source extraction
     final merchant = _extractMerchant(cleanText, transactionType);
 

@@ -2,35 +2,47 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/child_models.dart';
 import '../../data/models/child_profile_model.dart';
 import '../../data/repositories/child_repository.dart';
+import 'child_selection_provider.dart';
 
-/// Get child dashboard data for the currently logged-in child
-final childDashboardProvider = FutureProvider.autoDispose<ChildDashboardModel>((ref) async {
-  final repo = ref.watch(childRepositoryProvider);
-  return repo.getChildDashboard();
+/// Active child profile id when a parent has selected a child; null for child JWT.
+final activeChildIdProvider = Provider<int?>((ref) {
+  return ref.watch(selectedChildProvider)?.id;
 });
 
-/// Get quizzes for the currently logged-in child
-final childQuizzesProvider = FutureProvider.autoDispose<List<ChildQuizModel>>((ref) async {
+/// Dashboard scoped to child JWT or parent-selected child.
+final childDashboardProvider =
+    FutureProvider.autoDispose<ChildDashboardModel>((ref) async {
   final repo = ref.watch(childRepositoryProvider);
-  return repo.getQuizzes();
+  final childId = ref.watch(activeChildIdProvider);
+  return repo.getChildDashboard(childId: childId);
 });
 
-/// Get specific quiz details
-final childQuizDetailProvider = FutureProvider.autoDispose.family<ChildQuizModel, int>((ref, quizId) async {
+final childQuizzesProvider =
+    FutureProvider.autoDispose<List<ChildQuizModel>>((ref) async {
   final repo = ref.watch(childRepositoryProvider);
-  return repo.getQuiz(quizId);
+  final childId = ref.watch(activeChildIdProvider);
+  return repo.getQuizzes(childId: childId);
 });
 
-/// Get rewards for the currently logged-in child
-final childRewardsProvider = FutureProvider.autoDispose<List<ChildRewardModel>>((ref) async {
+final childQuizDetailProvider =
+    FutureProvider.autoDispose.family<ChildQuizModel, int>((ref, quizId) async {
   final repo = ref.watch(childRepositoryProvider);
-  return repo.getRewards();
+  final childId = ref.watch(activeChildIdProvider);
+  return repo.getQuiz(quizId, childId: childId);
 });
 
-/// Get progress/quiz results for the currently logged-in child
-final childProgressProvider = FutureProvider.autoDispose<List<ChildQuizResultModel>>((ref) async {
+final childRewardsProvider =
+    FutureProvider.autoDispose<List<ChildRewardModel>>((ref) async {
   final repo = ref.watch(childRepositoryProvider);
-  return repo.getProgress();
+  final childId = ref.watch(activeChildIdProvider);
+  return repo.getRewards(childId: childId);
+});
+
+final childProgressProvider =
+    FutureProvider.autoDispose<List<ChildQuizResultModel>>((ref) async {
+  final repo = ref.watch(childRepositoryProvider);
+  final childId = ref.watch(activeChildIdProvider);
+  return repo.getProgress(childId: childId);
 });
 
 /// Notifier for creating a new child account
@@ -62,9 +74,6 @@ class CreateChildNotifier extends StateNotifier<AsyncValue<ChildProfileModel?>> 
       state = AsyncValue.data(child);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
-      // The create screen awaits this operation.  Do not swallow failures here:
-      // doing so made the UI report a successful account creation even when the
-      // HTTP request failed before it reached the production backend.
       rethrow;
     }
   }
@@ -75,7 +84,8 @@ class CreateChildNotifier extends StateNotifier<AsyncValue<ChildProfileModel?>> 
 }
 
 final createChildNotifierProvider =
-    StateNotifierProvider<CreateChildNotifier, AsyncValue<ChildProfileModel?>>((ref) {
+    StateNotifierProvider<CreateChildNotifier, AsyncValue<ChildProfileModel?>>(
+        (ref) {
   final repository = ref.watch(childRepositoryProvider);
   return CreateChildNotifier(repository);
 });

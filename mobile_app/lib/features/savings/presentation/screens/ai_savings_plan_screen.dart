@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../ai_insights/presentation/providers/ai_provider.dart';
 
-/// Screen: AI Savings Plan & Strategy Report (Powered by Gemini API)
+/// Screen: AI Savings Plan & Strategy Report
 class AISavingsPlanScreen extends ConsumerWidget {
   final int goalId;
 
@@ -49,29 +49,28 @@ class AISavingsPlanScreen extends ConsumerWidget {
                 CircularProgressIndicator(),
                 SizedBox(height: 16),
                 Text(
-                  'Generating personalized plan with Gemini AI…',
+                  'Generating personalized plan…',
                   style: TextStyle(color: Colors.grey, fontSize: 13),
                 ),
               ],
             ),
           ),
-          error: (err, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-                  const SizedBox(height: 12),
-                  Text('Failed to generate savings plan: $err',
-                      textAlign: TextAlign.center),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => ref.invalidate(savingsPlanProvider(goalId)),
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
+          error: (err, _) => SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 48),
+                const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                const SizedBox(height: 12),
+                Text('Failed to generate savings plan: $err',
+                    textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(savingsPlanProvider(goalId)),
+                  child: const Text('Retry'),
+                ),
+              ],
             ),
           ),
           data: (plan) {
@@ -108,13 +107,15 @@ class AISavingsPlanScreen extends ConsumerWidget {
                             const Icon(Icons.auto_awesome,
                                 color: Colors.white, size: 20),
                             const SizedBox(width: 8),
-                            const Text(
-                              'GEMINI AI SAVINGS ROADMAP',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.8,
+                            const Flexible(
+                              child: Text(
+                                'AI SAVINGS ROADMAP',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.8,
+                                ),
                               ),
                             ),
                           ],
@@ -155,26 +156,33 @@ class AISavingsPlanScreen extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Feasibility Assessment',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w700, fontSize: 14),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: statusColor.withAlpha(25),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
+                            const Expanded(
                               child: Text(
-                                plan.feasibilityStatus,
+                                'Feasibility Assessment',
                                 style: TextStyle(
-                                  color: statusColor,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 11,
+                                    fontWeight: FontWeight.w700, fontSize: 14),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: statusColor.withAlpha(25),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  plan.feasibilityStatus,
+                                  textAlign: TextAlign.end,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    color: statusColor,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ),
                             ),
@@ -250,6 +258,7 @@ class AISavingsPlanScreen extends ConsumerWidget {
                                   ],
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               Text(
                                 '-Rs.${c.suggestedCut.toStringAsFixed(0)}',
                                 style: TextStyle(
@@ -285,19 +294,23 @@ class AISavingsPlanScreen extends ConsumerWidget {
                             border: Border.all(color: Colors.grey.shade200),
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
                                 'Month ${m.month}',
                                 style: const TextStyle(
                                     fontWeight: FontWeight.w600, fontSize: 13),
                               ),
-                              Text(
-                                'Rs. ${m.targetAccumulated.toStringAsFixed(0)} (${m.completionPercentage.toStringAsFixed(0)}%)',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  color: AppColors.darkTeal,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Rs. ${m.targetAccumulated.toStringAsFixed(0)} (${m.completionPercentage.toStringAsFixed(0)}%)',
+                                  textAlign: TextAlign.end,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                    color: AppColors.darkTeal,
+                                  ),
                                 ),
                               ),
                             ],
@@ -307,7 +320,7 @@ class AISavingsPlanScreen extends ConsumerWidget {
 
                   const SizedBox(height: 24),
                   const Text(
-                    'AI STRATEGY REPORT (GEMINI)',
+                    'AI STRATEGY REPORT',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w800,

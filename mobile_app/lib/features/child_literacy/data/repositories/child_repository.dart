@@ -131,14 +131,17 @@ class ChildRepository {
     );
   }
 
-  /// Update goal progress (parent adding savings to child's goal)
+  /// Update goal progress (parent or child adding savings to a goal)
   Future<ChildSavingsGoalModel> updateGoalProgress(
-    int childId,
+    int? childId,
     int goalId,
     double amountToAdd,
   ) async {
+    final endpoint = childId != null
+        ? '/v1/children/$childId/goals/$goalId/progress'
+        : '/v1/child/goals/$goalId/progress';
     final response = await dioClient.post<Map<String, dynamic>>(
-      endpoint: '/v1/children/$childId/goals/$goalId/progress',
+      endpoint: endpoint,
       data: {'amountToAdd': amountToAdd},
     );
     final data = response['data'] as Map<String, dynamic>;
@@ -239,28 +242,31 @@ class ChildSavingsGoalModel {
   factory ChildSavingsGoalModel.fromJson(Map<String, dynamic> json) {
     return ChildSavingsGoalModel(
       id: json['id'] as int?,
-      goalName: json['goalName']?.toString() ?? '',
+      goalName: json['title']?.toString() ??
+          json['goalName']?.toString() ??
+          '',
       targetAmount: (json['targetAmount'] as num?)?.toDouble() ?? 0.0,
       currentAmount: (json['currentAmount'] as num?)?.toDouble() ?? 0.0,
-      targetDate: json['targetDate'] != null
-          ? DateTime.tryParse(json['targetDate'].toString())
-          : null,
+      targetDate: json['deadline'] != null
+          ? DateTime.tryParse(json['deadline'].toString())
+          : (json['targetDate'] != null
+              ? DateTime.tryParse(json['targetDate'].toString())
+              : null),
       category: json['category']?.toString() ?? 'OTHER',
-      description: json['description']?.toString(),
-      achieved: json['achieved'] as bool? ?? false,
+      description: json['notes']?.toString() ?? json['description']?.toString(),
+      achieved: json['achieved'] as bool? ??
+          (json['status']?.toString().toUpperCase() == 'COMPLETED'),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'goalName': goalName,
+      'title': goalName,
       'targetAmount': targetAmount,
       'currentAmount': currentAmount,
-      'targetDate': targetDate?.toIso8601String(),
+      'deadline': targetDate?.toIso8601String().split('T').first,
       'category': category,
-      'description': description,
-      'achieved': achieved,
+      'notes': description,
     };
   }
 
