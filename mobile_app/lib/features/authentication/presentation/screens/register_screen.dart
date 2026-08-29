@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +6,7 @@ import '../../../../app/router/route_names.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../providers/auth_notifier.dart';
 import '../providers/auth_state.dart';
+import '../widgets/google_sign_in_button.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -67,6 +67,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             lastName: lastName,
           );
     }
+  }
+
+  void _handleGoogleSignIn() {
+    if (!_agreeToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please agree to the Terms and Conditions'),
+          backgroundColor: AppColors.warning,
+        ),
+      );
+      return;
+    }
+    ref.read(authNotifierProvider.notifier).signInWithGoogle();
   }
 
   @override
@@ -452,6 +465,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                       ),
                                     ),
                             ),
+                          ),
+                          const SizedBox(height: 18),
+
+                          GoogleSignInButton(
+                            isLoading: isLoading,
+                            onPressed: _handleGoogleSignIn,
                           ),
                           const SizedBox(height: 18),
 

@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../authentication/presentation/providers/auth_providers.dart';
 import '../../data/models/child_profile_model.dart';
 import '../../data/models/child_models.dart';
 import '../../data/repositories/child_repository.dart';

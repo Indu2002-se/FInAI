@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/core/constants/validators.dart';
-import '../../../../app/core/widgets/custom_button.dart';
-import '../../../../app/router/route_names.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../providers/child_provider.dart';
 import '../providers/child_selection_provider.dart';
@@ -63,7 +61,7 @@ class _CreateChildAccountScreenState extends ConsumerState<CreateChildAccountScr
 
         if (mounted) {
           // Refresh parent's children list and navigate back
-          ref.refresh(parentChildrenListProvider);
+          ref.invalidate(parentChildrenListProvider);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Child account created successfully!'),

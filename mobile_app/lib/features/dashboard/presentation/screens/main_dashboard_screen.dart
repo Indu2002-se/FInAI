@@ -183,13 +183,6 @@ class _DashboardBody extends ConsumerWidget {
 
   final DashboardModel data;
 
-  String _greeting() {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  }
-
   String _fmt(double v) {
     if (v >= 1000000) return 'Rs.${(v / 1000000).toStringAsFixed(1)}M';
     if (v >= 1000) return 'Rs.${(v / 1000).toStringAsFixed(0)}K';
@@ -220,7 +213,6 @@ class _DashboardBody extends ConsumerWidget {
     final budgetPct = data.monthlyBudgetAllocated > 0
         ? (data.monthlyBudgetSpent / data.monthlyBudgetAllocated).clamp(0.0, 1.0)
         : 0.0;
-    final pendingCount = ref.watch(pendingCountProvider);
 
     return SingleChildScrollView(
       child: Column(

@@ -13,6 +13,9 @@ abstract class AuthRepository {
     required String lastName,
   });
 
+  /// Returns null when the user dismisses the Google account picker.
+  Future<AuthEntity?> signInWithGoogle();
+
   Future<void> logout();
 
   Future<bool> isUserLoggedIn();

@@ -2,16 +2,19 @@ import '../../../../app/core/storage/secure_storage_service.dart';
 import '../../domain/entities/auth_entity.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
+import '../services/google_auth_service.dart';
 import '../models/login_request.dart';
 import '../models/register_request.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource remoteDataSource;
   final SecureStorageService secureStorage;
+  final GoogleAuthService googleAuthService;
 
   AuthRepositoryImpl({
     required this.remoteDataSource,
     required this.secureStorage,
+    required this.googleAuthService,
   });
 
   UserType _mapUserType(String? userTypeStr) {
@@ -19,6 +22,27 @@ class AuthRepositoryImpl implements AuthRepository {
       return UserType.child;
     }
     return UserType.parent;
+  }
+
+  @override
+  Future<AuthEntity?> signInWithGoogle() async {
+    final firebaseIdToken = await googleAuthService.signIn();
+    if (firebaseIdToken == null) {
+      return null;
+    }
+    final response = await remoteDataSource.loginWithFirebaseIdToken(firebaseIdToken);
+    await secureStorage.saveToken(response.token);
+    await secureStorage.saveRefreshToken(response.refreshToken);
+    return AuthEntity(
+      id: response.user.id,
+      email: response.user.email,
+      firstName: response.user.firstName,
+      lastName: response.user.lastName,
+      profileComplete: response.user.profileComplete,
+      token: response.token,
+      userType: _mapUserType(response.userType),
+      childProfileId: response.childProfileId,
+    );
   }
 
   @override

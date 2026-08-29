@@ -26,7 +26,7 @@ class ChildRepository {
     double initialSavings = 0.0,
   }) async {
     final response = await dioClient.post<Map<String, dynamic>>(
-      endpoint: '/api/v1/children',
+      endpoint: '/v1/children',
       data: {
         'firstName': firstName,
         'lastName': lastName,
@@ -44,7 +44,7 @@ class ChildRepository {
   /// Get list of all children for the logged-in parent
   Future<ParentChildrenListResponse> getParentChildren() async {
     final response = await dioClient.get<Map<String, dynamic>>(
-      endpoint: '/api/v1/children',
+      endpoint: '/v1/children',
     );
     final children = (response['data'] as List<dynamic>? ?? [])
         .whereType<Map<String, dynamic>>()
@@ -61,7 +61,7 @@ class ChildRepository {
   /// Get specific child's profile
   Future<ChildProfileModel> getChildProfile(int childId) async {
     final response = await dioClient.get<Map<String, dynamic>>(
-      endpoint: '/api/v1/children/$childId',
+      endpoint: '/v1/children/$childId',
     );
     final data = response['data'] as Map<String, dynamic>;
     return ChildProfileModel.fromJson(data);
@@ -72,8 +72,8 @@ class ChildRepository {
   /// Get child dashboard data for a specific child (for parent viewing)
   Future<ChildDashboardModel> getChildDashboard({int? childId}) async {
     final endpoint = childId != null 
-        ? '/api/v1/children/$childId/dashboard'
-        : '/api/v1/child/dashboard';
+        ? '/v1/children/$childId/dashboard'
+        : '/v1/child/dashboard';
     
     final response = await dioClient.get<Map<String, dynamic>>(
       endpoint: endpoint,
@@ -87,8 +87,8 @@ class ChildRepository {
   /// Get child's savings goals (for parent to view/edit)
   Future<List<ChildSavingsGoalModel>> getChildSavingsGoals({int? childId}) async {
     final endpoint = childId != null
-        ? '/api/v1/children/$childId/goals'
-        : '/api/v1/child/goals';
+        ? '/v1/children/$childId/goals'
+        : '/v1/child/goals';
     
     final response = await dioClient.get<Map<String, dynamic>>(
       endpoint: endpoint,
@@ -103,7 +103,7 @@ class ChildRepository {
     ChildSavingsGoalModel goal,
   ) async {
     final response = await dioClient.post<Map<String, dynamic>>(
-      endpoint: '/api/v1/children/$childId/goals',
+      endpoint: '/v1/children/$childId/goals',
       data: goal.toJson(),
     );
     final data = response['data'] as Map<String, dynamic>;
@@ -117,7 +117,7 @@ class ChildRepository {
     ChildSavingsGoalModel goal,
   ) async {
     final response = await dioClient.put<Map<String, dynamic>>(
-      endpoint: '/api/v1/children/$childId/goals/$goalId',
+      endpoint: '/v1/children/$childId/goals/$goalId',
       data: goal.toJson(),
     );
     final data = response['data'] as Map<String, dynamic>;
@@ -127,7 +127,7 @@ class ChildRepository {
   /// Delete a child's savings goal (parent action)
   Future<void> deleteChildSavingsGoal(int childId, int goalId) async {
     await dioClient.delete<Map<String, dynamic>>(
-      endpoint: '/api/v1/children/$childId/goals/$goalId',
+      endpoint: '/v1/children/$childId/goals/$goalId',
     );
   }
 
@@ -138,7 +138,7 @@ class ChildRepository {
     double amountToAdd,
   ) async {
     final response = await dioClient.post<Map<String, dynamic>>(
-      endpoint: '/api/v1/children/$childId/goals/$goalId/progress',
+      endpoint: '/v1/children/$childId/goals/$goalId/progress',
       data: {'amountToAdd': amountToAdd},
     );
     final data = response['data'] as Map<String, dynamic>;
@@ -149,8 +149,8 @@ class ChildRepository {
 
   Future<List<ChildQuizModel>> getQuizzes({int? childId}) async {
     final endpoint = childId != null
-        ? '/api/v1/children/$childId/quizzes'
-        : '/api/v1/child/quizzes';
+        ? '/v1/children/$childId/quizzes'
+        : '/v1/child/quizzes';
     
     final response = await dioClient.get<Map<String, dynamic>>(
       endpoint: endpoint,
@@ -161,8 +161,8 @@ class ChildRepository {
 
   Future<ChildQuizModel> getQuiz(int quizId, {int? childId}) async {
     final endpoint = childId != null
-        ? '/api/v1/children/$childId/quizzes/$quizId'
-        : '/api/v1/child/quizzes/$quizId';
+        ? '/v1/children/$childId/quizzes/$quizId'
+        : '/v1/child/quizzes/$quizId';
     
     final response = await dioClient.get<Map<String, dynamic>>(
       endpoint: endpoint,
@@ -177,8 +177,8 @@ class ChildRepository {
     int? childId,
   }) async {
     final endpoint = childId != null
-        ? '/api/v1/children/$childId/quizzes/$quizId/attempt'
-        : '/api/v1/child/quizzes/$quizId/attempt';
+        ? '/v1/children/$childId/quizzes/$quizId/attempt'
+        : '/v1/child/quizzes/$quizId/attempt';
     
     final response = await dioClient.post<Map<String, dynamic>>(
       endpoint: endpoint,
@@ -192,8 +192,8 @@ class ChildRepository {
 
   Future<List<ChildRewardModel>> getRewards({int? childId}) async {
     final endpoint = childId != null
-        ? '/api/v1/children/$childId/rewards'
-        : '/api/v1/child/rewards';
+        ? '/v1/children/$childId/rewards'
+        : '/v1/child/rewards';
     
     final response = await dioClient.get<Map<String, dynamic>>(
       endpoint: endpoint,
@@ -204,8 +204,8 @@ class ChildRepository {
 
   Future<List<ChildQuizResultModel>> getProgress({int? childId}) async {
     final endpoint = childId != null
-        ? '/api/v1/children/$childId/progress'
-        : '/api/v1/child/progress';
+        ? '/v1/children/$childId/progress'
+        : '/v1/child/progress';
     
     final response = await dioClient.get<Map<String, dynamic>>(
       endpoint: endpoint,

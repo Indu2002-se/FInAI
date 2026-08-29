@@ -6,6 +6,7 @@ import '../models/register_request.dart';
 abstract class AuthRemoteDataSource {
   Future<LoginResponse> login(LoginRequest request);
   Future<LoginResponse> register(RegisterRequest request);
+  Future<LoginResponse> loginWithFirebaseIdToken(String idToken);
   Future<void> logout();
 }
 
@@ -38,6 +39,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } catch (e) {
       rethrow;
     }
+  }
+
+  @override
+  Future<LoginResponse> loginWithFirebaseIdToken(String idToken) async {
+    final response = await dioClient.post<Map<String, dynamic>>(
+      endpoint: '/auth/firebase',
+      data: {'idToken': idToken},
+    );
+    return LoginResponse.fromJson(response);
   }
 
   @override

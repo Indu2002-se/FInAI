@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../../theme/app_theme.dart';
 
 /// Custom progress bar with percentage display
 class FinaiProgressBar extends StatelessWidget {

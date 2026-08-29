@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +6,7 @@ import '../../../../app/router/route_names.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../providers/auth_notifier.dart';
 import '../providers/auth_state.dart';
+import '../widgets/google_sign_in_button.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -43,6 +43,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             password: _passwordController.text,
           );
     }
+  }
+
+  void _handleGoogleSignIn() {
+    ref.read(authNotifierProvider.notifier).signInWithGoogle();
   }
 
   @override
@@ -334,6 +338,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                     ),
                                   ),
                           ),
+                        ),
+                        const SizedBox(height: 18),
+
+                        GoogleSignInButton(
+                          isLoading: isLoading,
+                          onPressed: _handleGoogleSignIn,
                         ),
                         const SizedBox(height: 18),
 

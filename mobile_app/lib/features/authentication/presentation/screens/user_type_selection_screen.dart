@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/router/route_names.dart';
-import '../../../../app/theme/app_theme.dart';
 
 /// Screen: User Type Selection (Parent or Child)
 /// Allows users to choose between parent and child login

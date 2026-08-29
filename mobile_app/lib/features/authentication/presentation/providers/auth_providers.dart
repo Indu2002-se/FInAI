@@ -3,8 +3,10 @@ import '../../../../app/core/network/dio_client.dart';
 import '../../../../app/core/storage/secure_storage_service.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../data/services/google_auth_service.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/login_usecase.dart';
+import '../../domain/usecases/google_login_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 
@@ -18,9 +20,11 @@ final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final remoteDataSource = ref.watch(authRemoteDataSourceProvider);
   final secureStorage = ref.watch(secureStorageServiceProvider);
+  final googleAuthService = GoogleAuthService();
   return AuthRepositoryImpl(
     remoteDataSource: remoteDataSource,
     secureStorage: secureStorage,
+    googleAuthService: googleAuthService,
   );
 });
 
@@ -28,6 +32,11 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return LoginUseCase(repository: repository);
+});
+
+final googleLoginUseCaseProvider = Provider<GoogleLoginUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return GoogleLoginUseCase(repository: repository);
 });
 
 final registerUseCaseProvider = Provider<RegisterUseCase>((ref) {

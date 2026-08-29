@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../../theme/app_theme.dart';
 
 /// Transaction list item with category, amount, and timestamp
 class FinaiTransactionTile extends StatelessWidget {

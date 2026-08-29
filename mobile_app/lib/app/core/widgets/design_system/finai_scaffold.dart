@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme/app_theme.dart';
+import '../../../theme/app_theme.dart';
 
 /// Enhanced scaffold with white card container and floating nav clearance
 class FinaiScaffold extends StatelessWidget {
