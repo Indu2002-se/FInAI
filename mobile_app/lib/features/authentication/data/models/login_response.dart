@@ -2,11 +2,15 @@ class LoginResponse {
   final String token;
   final String refreshToken;
   final UserData user;
+  final String userType; // 'PARENT' or 'CHILD'
+  final int? childProfileId; // For child users
 
   LoginResponse({
     required this.token,
     required this.refreshToken,
     required this.user,
+    required this.userType,
+    this.childProfileId,
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) {
@@ -23,6 +27,8 @@ class LoginResponse {
             ? data['user'] as Map<String, dynamic>
             : {},
       ),
+      userType: (data['userType'] ?? 'PARENT').toString(),
+      childProfileId: data['childProfileId'] as int?,
     );
   }
 
@@ -31,6 +37,8 @@ class LoginResponse {
       'token': token,
       'refreshToken': refreshToken,
       'user': user.toJson(),
+      'userType': userType,
+      'childProfileId': childProfileId,
     };
   }
 }
@@ -41,6 +49,7 @@ class UserData {
   final String firstName;
   final String lastName;
   final bool profileComplete;
+  final String? userType; // 'PARENT' or 'CHILD'
 
   UserData({
     required this.id,
@@ -48,6 +57,7 @@ class UserData {
     required this.firstName,
     required this.lastName,
     required this.profileComplete,
+    this.userType,
   });
 
   factory UserData.fromJson(Map<String, dynamic> json) {
@@ -57,6 +67,7 @@ class UserData {
       firstName: json['firstName']?.toString() ?? '',
       lastName: json['lastName']?.toString() ?? '',
       profileComplete: json['profileComplete'] == true,
+      userType: json['userType']?.toString(),
     );
   }
 
@@ -67,6 +78,7 @@ class UserData {
       'firstName': firstName,
       'lastName': lastName,
       'profileComplete': profileComplete,
+      'userType': userType,
     };
   }
 }

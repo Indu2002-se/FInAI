@@ -14,6 +14,13 @@ class AuthRepositoryImpl implements AuthRepository {
     required this.secureStorage,
   });
 
+  UserType _mapUserType(String? userTypeStr) {
+    if (userTypeStr?.toUpperCase() == 'CHILD') {
+      return UserType.child;
+    }
+    return UserType.parent;
+  }
+
   @override
   Future<AuthEntity> login({
     required String email,
@@ -27,6 +34,8 @@ class AuthRepositoryImpl implements AuthRepository {
       await secureStorage.saveToken(response.token);
       await secureStorage.saveRefreshToken(response.refreshToken);
 
+      final userType = _mapUserType(response.userType);
+
       return AuthEntity(
         id: response.user.id,
         email: response.user.email,
@@ -34,6 +43,8 @@ class AuthRepositoryImpl implements AuthRepository {
         lastName: response.user.lastName,
         profileComplete: response.user.profileComplete,
         token: response.token,
+        userType: userType,
+        childProfileId: response.childProfileId,
       );
     } catch (e) {
       rethrow;
@@ -60,6 +71,8 @@ class AuthRepositoryImpl implements AuthRepository {
       await secureStorage.saveToken(response.token);
       await secureStorage.saveRefreshToken(response.refreshToken);
 
+      final userType = _mapUserType(response.userType);
+
       return AuthEntity(
         id: response.user.id,
         email: response.user.email,
@@ -67,6 +80,8 @@ class AuthRepositoryImpl implements AuthRepository {
         lastName: response.user.lastName,
         profileComplete: response.user.profileComplete,
         token: response.token,
+        userType: userType,
+        childProfileId: response.childProfileId,
       );
     } catch (e) {
       rethrow;

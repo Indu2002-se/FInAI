@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../features/authentication/presentation/screens/forgot_password_screen.dart';
 import '../../features/authentication/presentation/screens/login_screen.dart';
 import '../../features/authentication/presentation/screens/register_screen.dart';
+import '../../features/authentication/presentation/screens/user_type_selection_screen.dart';
+import '../../features/authentication/presentation/screens/child_login_screen.dart';
 import '../../features/splash/presentation/screens/splash_screen.dart';
 
 // Onboarding
@@ -55,6 +57,8 @@ import '../../features/savings/presentation/screens/ai_savings_plan_screen.dart'
 // Child Financial Literacy
 import '../../features/child_literacy/presentation/screens/child_savings_dashboard_screen.dart';
 import '../../features/child_literacy/presentation/screens/child_savings_goal_screen.dart';
+import '../../features/child_literacy/presentation/screens/child_profile_selector_screen.dart';
+import '../../features/child_literacy/presentation/screens/create_child_account_screen.dart';
 import '../../features/child_literacy/presentation/screens/chores_rewards_screen.dart';
 import '../../features/child_literacy/presentation/screens/financial_quiz_screen.dart';
 import '../../features/child_literacy/presentation/screens/quiz_result_screen.dart';
@@ -89,9 +93,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const IntroScreen(),
       ),
       GoRoute(
+        path: RouteNames.userTypeSelection,
+        name: 'user-type-selection',
+        builder: (context, state) => const UserTypeSelectionScreen(),
+      ),
+      GoRoute(
         path: RouteNames.login,
         name: 'login',
         builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.childLogin,
+        name: 'child-login',
+        builder: (context, state) => const ChildLoginScreen(),
       ),
       GoRoute(
         path: RouteNames.register,
@@ -279,6 +293,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // ==================== Child Financial Literacy Routes ====================
+      GoRoute(
+        path: RouteNames.childProfileSelector,
+        name: 'child-profile-selector',
+        builder: (context, state) => const ChildProfileSelectorScreen(),
+      ),
+      GoRoute(
+        path: RouteNames.createChildAccount,
+        name: 'create-child-account',
+        builder: (context, state) => const CreateChildAccountScreen(),
+      ),
       GoRoute(
         path: RouteNames.childDashboard,
         name: 'child-dashboard',

@@ -183,6 +183,35 @@ class ProfileScreen extends ConsumerWidget {
                       color: AppColors.tealExtraLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
+                    child: Icon(Icons.family_restroom, color: AppColors.darkTeal),
+                  ),
+                  title: const Text(
+                    'Manage Children',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  subtitle: const Text(
+                    'Create and manage child accounts',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                  onTap: () => context.push(RouteNames.childProfileSelector),
+                ),
+              ),
+              const SizedBox(height: 12),
+              // Savings Goals button
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: AppTheme.shadowCard,
+                ),
+                child: ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.tealExtraLight,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Icon(Icons.savings_outlined, color: AppColors.darkTeal),
                   ),
                   title: const Text(

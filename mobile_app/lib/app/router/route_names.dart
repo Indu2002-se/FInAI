@@ -6,7 +6,9 @@ class RouteNames {
   // Auth routes
   static const String splash = '/';
   static const String intro = '/intro';
+  static const String userTypeSelection = '/user-type';
   static const String login = '/login';
+  static const String childLogin = '/child-login';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
 
@@ -55,7 +57,9 @@ class RouteNames {
   static const String aiSavingsPlan = '/savings/ai-plan';
 
   // Child Literacy routes
+  static const String childProfileSelector = '/child/select';
   static const String childDashboard = '/child';
+  static const String createChildAccount = '/child/create';
   static const String childSavingsGoal = '/child/goal';
   static const String choresRewards = '/child/chores';
   static const String financialQuiz = '/child/quiz';

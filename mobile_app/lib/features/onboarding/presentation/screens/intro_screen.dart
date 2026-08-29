@@ -167,7 +167,7 @@ class IntroScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 28),
 
-                      // Black Pill Button: Sign up
+                      // Black Pill Button: Get Started
                       SizedBox(
                         width: double.infinity,
                         height: 52,
@@ -180,9 +180,9 @@ class IntroScreen extends StatelessWidget {
                               borderRadius: BorderRadius.circular(26),
                             ),
                           ),
-                          onPressed: () => context.push(RouteNames.register),
+                          onPressed: () => context.push(RouteNames.userTypeSelection),
                           child: const Text(
-                            'Sign up',
+                            'Get Started',
                             style: TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
@@ -193,20 +193,20 @@ class IntroScreen extends StatelessWidget {
 
                       const SizedBox(height: 18),
 
-                      // Footer: Already a member yet? Sign in
+                      // Footer: New user? Sign up
                       Center(
                         child: GestureDetector(
-                          onTap: () => context.push(RouteNames.login),
+                          onTap: () => context.push(RouteNames.register),
                           child: RichText(
                             text: TextSpan(
-                              text: 'Already a member yet? ',
+                              text: 'New user? ',
                               style: TextStyle(
                                 fontSize: 13,
                                 color: Colors.grey[600],
                               ),
                               children: const [
                                 TextSpan(
-                                  text: 'Sign in',
+                                  text: 'Create account',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,

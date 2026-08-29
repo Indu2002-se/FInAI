@@ -8,6 +8,7 @@ import '../../data/models/dashboard_model.dart';
 import '../providers/dashboard_provider.dart';
 import '../../../transaction_detection/presentation/providers/transaction_detection_provider.dart';
 import '../../../transaction_detection/presentation/widgets/transaction_detection_banner.dart';
+import '../../../authentication/presentation/providers/auth_notifier.dart';
 
 /// Main Financial Dashboard — all data from live backend + AI service.
 class MainDashboardScreen extends ConsumerWidget {
@@ -355,6 +356,153 @@ class _DashboardBody extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+
+          SizedBox(height: AppTheme.spacing20),
+
+          // ── Child Financial Literacy (Parents Only) ──────────────────────────
+          Consumer(
+            builder: (context, ref, _) {
+              final authState = ref.watch(authNotifierProvider);
+              return authState.maybeWhen(
+                authenticated: (user) {
+                  if (user.isParent) {
+                    return Padding(
+                      padding: EdgeInsets.symmetric(horizontal: AppTheme.spacing20),
+                      child: Container(
+                        padding: EdgeInsets.all(AppTheme.spacing16),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          border: Border.all(color: Colors.green, width: 1.5),
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.family_restroom,
+                                        color: Colors.green, size: 20),
+                                    SizedBox(width: AppTheme.spacing8),
+                                    Text("My Children's Savings",
+                                        style: theme.textTheme.titleSmall
+                                            ?.copyWith(fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      context.push(RouteNames.childProfileSelector),
+                                  child: const Text('View All'),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: AppTheme.spacing4),
+                            Text(
+                              'Monitor and manage your children\'s financial learning journey.',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.green[700], height: 1.3),
+                            ),
+                            SizedBox(height: AppTheme.spacing12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        context.push(RouteNames.childProfileSelector),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        border: Border.all(color: Colors.green, width: 1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.family_restroom,
+                                              color: Colors.green, size: 24),
+                                          SizedBox(width: AppTheme.spacing12),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text('View Children',
+                                                    style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Colors.green[700])),
+                                                Text('View dashboard',
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors.green[600])),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(Icons.arrow_forward_ios,
+                                              color: Colors.green, size: 16),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: AppTheme.spacing8),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        context.push(RouteNames.createChildAccount),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 16, vertical: 12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green,
+                                        border: Border.all(color: Colors.green, width: 1),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(Icons.add_circle,
+                                              color: Colors.white, size: 24),
+                                          SizedBox(width: AppTheme.spacing8),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text('Add Child',
+                                                    style: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Colors.white)),
+                                                Text('Create account',
+                                                    style: TextStyle(
+                                                        fontSize: 11,
+                                                        color: Colors.white70)),
+                                              ],
+                                            ),
+                                          ),
+                                          Icon(Icons.arrow_forward_ios,
+                                              color: Colors.white, size: 16),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+                orElse: () => const SizedBox.shrink(),
+              );
+            },
           ),
 
           SizedBox(height: AppTheme.spacing20),
