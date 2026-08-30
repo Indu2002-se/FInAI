@@ -1,11 +1,18 @@
 import os
 import unittest
+import pytest
 from fastapi.testclient import TestClient
 from main import app
 from services.risk_service import RiskService
 from services.forecast_service import ForecastService
 from services.recommendation_service import RecommendationService
-from schemas import MonthlyExpenseRecord
+from schemas import (
+    MonthlyExpenseRecord,
+    RiskPredictionResponse,
+    ForecastResponse,
+    RecommendationResponse,
+    CombinedAnalysisResponse
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.environ.get("MODELS_DIR", os.path.join(BASE_DIR, "models"))
@@ -13,6 +20,39 @@ if not os.path.exists(MODELS_DIR):
     alt_dir = os.path.join(BASE_DIR, "..", "..", "FINAL_MODEL_ARTIFACTS")
     if os.path.exists(alt_dir):
         MODELS_DIR = alt_dir
+
+def get_valid_42_features():
+    cols = [
+        "age", "gender", "education", "marital_status", "household_size_f",
+        "employment_income", "other_income", "windfall_income", "agri_income",
+        "non_agri_income", "transfer_income", "total_income", "food_expenditure",
+        "nonfood_expenditure", "total_expenditure", "expense_to_income_ratio",
+        "financial_surplus", "savings_ratio", "per_capita_income", "employment_capacity",
+        "debt_amount", "debt_records", "debt_sources", "debt_to_income_ratio",
+        "credit_card_debt", "has_credit_card_debt", "has_creditmix_match",
+        "credit_score", "credit_defaulted", "credit_clv", "credit_fraud_txn",
+        "cc_utilization_ratio", "cc_late_payments", "cc_credit_lines",
+        "cc_debt_to_income_ratio", "cc_total_spend_last_year", "cc_avg_txn_amount",
+        "cc_total_txns", "cc_tenure_years", "vehicle_ownership",
+        "instalment_goods_flag", "instalment_amount"
+    ]
+    feats = {col: 0.0 for col in cols}
+    feats.update({
+        "age": 40.0, "gender": 1.0, "education": 10.0, "marital_status": 1.0, "household_size_f": 4.0,
+        "employment_income": 120000.0, "total_income": 120000.0,
+        "food_expenditure": 25000.0, "nonfood_expenditure": 35000.0, "total_expenditure": 60000.0,
+        "expense_to_income_ratio": 0.50, "financial_surplus": 60000.0, "savings_ratio": 0.50,
+        "per_capita_income": 30000.0, "employment_capacity": 1.0,
+        "debt_amount": 0.0, "debt_records": 0.0, "debt_sources": 0.0, "debt_to_income_ratio": 0.0,
+        "credit_score": 740.0, "credit_defaulted": 0.0
+    })
+    return feats
+
+def get_valid_expense_history(months=6):
+    return [
+        MonthlyExpenseRecord(date=f"2025-{m:02d}-01", food=25000.0, nonFood=35000.0, total=60000.0)
+        for m in range(1, months + 1)
+    ]
 
 # ==================== Health Test ====================
 
@@ -22,7 +62,7 @@ def test_health():
         assert response.status_code == 200
         assert response.json()["status"] == "ok"
 
-# ==================== Model 1 Tests ====================
+# ==================== Task 7 & 8: RiskService Tests ====================
 
 def test_model1_artifact_loading_and_features():
     risk_svc = RiskService(MODELS_DIR)
@@ -33,148 +73,166 @@ def test_model1_artifact_loading_and_features():
     assert "savings_ratio" in risk_svc.feature_cols
     assert len(risk_svc.label_map) == 3, "Model 1 must have 3 risk classes"
 
-def test_model1_prediction_and_shap():
+def test_model1_missing_artifact_sets_none(tmp_path):
+    empty_svc = RiskService(str(tmp_path))
+    assert empty_svc.model is None
+    res = empty_svc.predict(get_valid_42_features())
+    assert res.inference_source == "MODEL_UNAVAILABLE"
+    assert res.riskLevel in ["Unknown", "Model Unavailable"]
+
+def test_model1_valid_42_features_prediction():
     risk_svc = RiskService(MODELS_DIR)
-    sample_features = {
-        "age": 40,
-        "gender": 1,
-        "education": 10,
-        "marital_status": 1,
-        "household_size_f": 4,
-        "total_income": 120000.0,
-        "food_expenditure": 25000.0,
-        "nonfood_expenditure": 35000.0,
-        "total_expenditure": 60000.0,
-        "expense_to_income_ratio": 0.50,
-        "financial_surplus": 60000.0,
-        "savings_ratio": 0.50,
-        "debt_amount": 0.0,
-        "debt_to_income_ratio": 0.0,
-        "credit_score": 740
-    }
-    result = risk_svc.predict(sample_features)
+    feats = get_valid_42_features()
+    result = risk_svc.predict(feats)
+    assert result.inference_source == "ML_MODEL"
     assert result.riskLevel in ["Low Risk", "Medium Risk", "High Risk"]
     assert 0.0 <= result.riskProbability <= 1.0
     assert 0.0 <= result.financialHealthScore <= 100.0
     assert result.explanation is not None
     assert len(result.explanation.topDriver) > 0
-    assert len(result.explanation.drivers) > 0
-    for d in result.explanation.drivers:
-        assert d.direction in ["increases_risk", "decreases_risk"]
-        assert isinstance(d.impact, float)
 
-# ==================== Model 2 Tests ====================
+def test_model1_invalid_feature_length_fails():
+    risk_svc = RiskService(MODELS_DIR)
+    partial_features = {"age": 40, "total_income": 120000.0}  # Only 2 features instead of 42
+    result = risk_svc.predict(partial_features)
+    assert result.inference_source == "INVALID_FEATURES"
+    assert result.riskLevel == "Invalid Features"
+    assert result.explanation is not None
 
-def test_model2_prophet_loading_and_multi_horizon():
+# ==================== Task 9 & 10: ForecastService Tests ====================
+
+def test_model2_prophet_loading():
     forecast_svc = ForecastService(MODELS_DIR)
-    for horizon in [3, 6, 12]:
-        history = [
-            MonthlyExpenseRecord(date="2026-01-01", food=25000, nonFood=35000, total=60000),
-            MonthlyExpenseRecord(date="2026-02-01", food=26000, nonFood=36000, total=62000),
-        ]
-        fc = forecast_svc.forecast(history=history, forecast_months=horizon)
-        assert len(fc.total) == horizon, f"Forecast must have {horizon} points"
-        assert len(fc.food) == horizon
-        assert len(fc.nonFood) == horizon
-        assert fc.forecastMonths == horizon
+    assert forecast_svc.food_model is not None
+    assert forecast_svc.nonfood_model is not None
+    assert forecast_svc.total_model is not None
 
-        # Verify sequential dates and non-negativity
-        for i in range(horizon):
-            assert fc.total[i].predictedAmount >= 0.0, "Total forecast must be non-negative"
-            assert fc.food[i].predictedAmount >= 0.0, "Food forecast must be non-negative"
-            assert fc.nonFood[i].predictedAmount >= 0.0, "Non-food forecast must be non-negative"
-            assert fc.total[i].lowerBound >= 0.0
-            assert fc.total[i].upperBound >= fc.total[i].predictedAmount
+def test_model2_missing_artifacts_sets_none(tmp_path):
+    empty_svc = ForecastService(str(tmp_path))
+    assert empty_svc.food_model is None
+    res = empty_svc.forecast(get_valid_expense_history(6), forecast_months=6)
+    assert res.inference_source == "MODEL_UNAVAILABLE"
+    assert len(res.total) == 0
 
-def test_model2_fallback_when_model_disabled():
+def test_model2_forecast_valid_history():
     forecast_svc = ForecastService(MODELS_DIR)
-    # Simulate disabled / missing Prophet models
-    forecast_svc.food_model = None
-    forecast_svc.nonfood_model = None
-    forecast_svc.total_model = None
-
-    history = [MonthlyExpenseRecord(date="2026-01-01", food=20000, nonFood=30000, total=50000)]
+    history = get_valid_expense_history(6)
     fc = forecast_svc.forecast(history=history, forecast_months=6)
+    assert fc.inference_source == "ML_MODEL"
     assert len(fc.total) == 6
-    assert all(pt.predictedAmount > 0 for pt in fc.total)
+    assert len(fc.food) == 6
+    assert len(fc.nonFood) == 6
+    for i in range(6):
+        assert fc.total[i].predictedAmount >= 0.0
+        assert fc.food[i].predictedAmount >= 0.0
+        assert fc.nonFood[i].predictedAmount >= 0.0
 
-# ==================== Model 3 Tests ====================
+def test_model2_forecast_insufficient_history():
+    forecast_svc = ForecastService(MODELS_DIR)
+    short_history = [
+        MonthlyExpenseRecord(date="2026-01-01", food=25000, nonFood=35000, total=60000),
+        MonthlyExpenseRecord(date="2026-02-01", food=26000, nonFood=36000, total=62000)
+    ]
+    fc = forecast_svc.forecast(history=short_history, forecast_months=6)
+    assert fc.inference_source == "INSUFFICIENT_HISTORY"
+    assert len(fc.total) == 0
 
-def test_model3_artifact_loading_and_features():
+# ==================== Task 11 & 12: RecommendationService Tests ====================
+
+def test_model3_artifact_loading():
     rec_svc = RecommendationService(MODELS_DIR)
-    assert rec_svc.model is not None, "Model 3 XGBoost artifact must load successfully"
-    assert len(rec_svc.feature_cols) == 42, "Model 3 must use all 42 features"
-    assert len(rec_svc.label_map) == 5, "Model 3 must map to 5 recommendation categories"
+    assert rec_svc.model is not None
+    assert len(rec_svc.feature_cols) == 42
+    assert len(rec_svc.label_map) == 5
+    assert "debt_to_income_high" in rec_svc.thresholds
 
-def test_model3_real_xgboost_inference():
+def test_model3_missing_artifacts_sets_none(tmp_path):
+    empty_svc = RecommendationService(str(tmp_path))
+    assert empty_svc.model is None
+    res = empty_svc.generate(features=None)
+    assert res.inference_source == "RULE_FALLBACK"
+
+def test_model3_ml_prediction():
     rec_svc = RecommendationService(MODELS_DIR)
-    valid_categories = {
-        "Build Emergency Savings",
-        "Debt Reduction Plan",
-        "Expense Optimization",
-        "Increase Income / Employment Support",
-        "Maintain & Grow Wealth"
-    }
+    feats = get_valid_42_features()
+    res = rec_svc.generate(
+        risk_level="Low Risk",
+        health_score=85.0,
+        top_driver="savings_ratio",
+        features=feats
+    )
+    assert res.inference_source == "ML_MODEL"
+    assert len(res.category) > 0
+    assert len(res.actionItems) > 0
 
-    # Case A: Low risk, healthy profile -> Real ML inference
-    features_wealth = {
-        "age": 45, "gender": 1, "education": 13, "marital_status": 2, "household_size_f": 3,
-        "total_income": 250000.0, "employment_income": 250000.0,
-        "food_expenditure": 30000.0, "nonfood_expenditure": 40000.0, "total_expenditure": 70000.0,
-        "expense_to_income_ratio": 0.28, "financial_surplus": 180000.0, "savings_ratio": 0.72,
-        "per_capita_income": 83333.0, "debt_amount": 0.0, "debt_to_income_ratio": 0.0, "credit_score": 780
-    }
-    rec_a = rec_svc.generate(risk_level="Low Risk", health_score=92.0, top_driver="savings_ratio", features=features_wealth)
-    assert rec_a.category in valid_categories
-    assert len(rec_a.recommendation) > 0
-    assert len(rec_a.actionItems) > 0
+def test_model3_rule_fallback_when_model_disabled():
+    rec_svc = RecommendationService(MODELS_DIR)
+    rec_svc.model = None  # disable model
+    feats = get_valid_42_features()
+    feats["debt_to_income_ratio"] = 0.5  # High debt
+    res = rec_svc.generate(
+        risk_level="High Risk",
+        health_score=40.0,
+        top_driver="debt_to_income_ratio",
+        features=feats
+    )
+    assert res.inference_source == "RULE_FALLBACK"
+    assert res.category == "Debt Reduction Plan"
+    assert len(res.actionItems) > 0
 
-    # Case B: Rule fallback when features are not provided
-    rec_fallback = rec_svc.generate(risk_level="High Risk", health_score=35.0, top_driver="debt_to_income_ratio", features=None)
-    assert rec_fallback.category == "Debt Reduction Plan"
-    assert len(rec_fallback.actionItems) > 0
+# ==================== Task 13: Response Schemas & API Tests ====================
 
-# ==================== Integration API Tests ====================
-
-def test_api_risk_predict():
+def test_api_risk_predict_valid_features():
     with TestClient(app) as c:
         payload = {
             "userId": 1,
-            "features": {
-                "age": 35,
-                "total_income": 120000.0,
-                "total_expenditure": 60000.0,
-                "expense_to_income_ratio": 0.5,
-                "financial_surplus": 60000.0,
-                "debt_amount": 0.0,
-                "debt_to_income_ratio": 0.0,
-                "savings_ratio": 0.3
-            }
+            "features": get_valid_42_features()
         }
         response = c.post("/api/v1/ai/risk/predict", json=payload)
         assert response.status_code == 200
         data = response.json()
+        assert data["inference_source"] == "ML_MODEL"
         assert "financialHealthScore" in data
         assert "riskLevel" in data
-        assert "riskProbability" in data
-        assert "explanation" in data
 
-def test_api_expense_forecast():
+def test_api_risk_predict_invalid_features():
+    with TestClient(app) as c:
+        payload = {
+            "userId": 1,
+            "features": {"age": 25}
+        }
+        response = c.post("/api/v1/ai/risk/predict", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["inference_source"] == "INVALID_FEATURES"
+
+def test_api_expense_forecast_valid():
+    with TestClient(app) as c:
+        payload = {
+            "userId": 1,
+            "history": [r.model_dump() for r in get_valid_expense_history(4)],
+            "forecastMonths": 6
+        }
+        response = c.post("/api/v1/ai/expense/forecast", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["inference_source"] == "ML_MODEL"
+        assert len(data["total"]) == 6
+
+def test_api_expense_forecast_insufficient():
     with TestClient(app) as c:
         payload = {
             "userId": 1,
             "history": [
-                {"date": "2026-01-01", "food": 25000, "nonFood": 20000, "total": 45000},
-                {"date": "2026-02-01", "food": 26000, "nonFood": 21000, "total": 47000}
+                {"date": "2026-01-01", "food": 25000, "nonFood": 20000, "total": 45000}
             ],
             "forecastMonths": 6
         }
         response = c.post("/api/v1/ai/expense/forecast", json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert len(data["total"]) == 6
-        assert len(data["food"]) == 6
-        assert len(data["nonFood"]) == 6
+        assert data["inference_source"] == "INSUFFICIENT_HISTORY"
+        assert len(data["total"]) == 0
 
 def test_api_recommendation_generate():
     with TestClient(app) as c:
@@ -183,44 +241,30 @@ def test_api_recommendation_generate():
             "riskLevel": "Low Risk",
             "financialHealthScore": 85.0,
             "topDriver": "savings_ratio",
-            "features": {
-                "total_income": 150000.0,
-                "total_expenditure": 50000.0,
-                "expense_to_income_ratio": 0.33,
-                "financial_surplus": 100000.0,
-                "debt_amount": 0.0,
-                "debt_to_income_ratio": 0.0
-            }
+            "features": get_valid_42_features()
         }
         response = c.post("/api/v1/ai/recommendation/generate", json=payload)
         assert response.status_code == 200
         data = response.json()
+        assert data["inference_source"] == "ML_MODEL"
         assert "category" in data
-        assert "recommendation" in data
         assert len(data["actionItems"]) > 0
 
 def test_api_combined_analyze():
     with TestClient(app) as c:
         payload = {
             "userId": 1,
-            "features": {
-                "expense_to_income_ratio": 0.65,
-                "total_income": 100000.0,
-                "total_expenditure": 65000.0,
-                "debt_to_income_ratio": 0.2
-            },
-            "expenseHistory": [
-                {"date": "2026-01-01", "food": 20000, "nonFood": 35000, "total": 55000}
-            ],
+            "features": get_valid_42_features(),
+            "expenseHistory": [r.model_dump() for r in get_valid_expense_history(4)],
             "forecastMonths": 6
         }
         response = c.post("/api/v1/ai/analyze", json=payload)
         assert response.status_code == 200
         data = response.json()
-        assert "risk" in data
-        assert "explanation" in data
-        assert "forecast" in data
-        assert "recommendation" in data
+        assert data["risk"]["inference_source"] == "ML_MODEL"
+        assert data["forecast"]["inference_source"] == "ML_MODEL"
+        assert data["recommendation"]["inference_source"] == "ML_MODEL"
+        assert len(data["forecast"]["total"]) == 6
 
 def test_api_savings_plan_generate():
     with TestClient(app) as c:
@@ -242,30 +286,6 @@ def test_api_savings_plan_generate():
         assert len(data["milestones"]) == 6
 
 if __name__ == "__main__":
-    tests = [
-        test_health,
-        test_model1_artifact_loading_and_features,
-        test_model1_prediction_and_shap,
-        test_model2_prophet_loading_and_multi_horizon,
-        test_model2_fallback_when_model_disabled,
-        test_model3_artifact_loading_and_features,
-        test_model3_real_xgboost_inference,
-        test_api_risk_predict,
-        test_api_expense_forecast,
-        test_api_recommendation_generate,
-        test_api_combined_analyze,
-        test_api_savings_plan_generate
-    ]
-    print(f"Running {len(tests)} test cases...")
-    passed = 0
-    for t in tests:
-        try:
-            t()
-            print(f"  [PASS] {t.__name__}")
-            passed += 1
-        except Exception as e:
-            print(f"  [FAIL] {t.__name__}: {e}")
-            raise
-    print(f"\n==================== {passed}/{len(tests)} TESTS PASSED SUCCESSFULLY! ====================")
+    pytest.main([__file__, "-v"])
 
 

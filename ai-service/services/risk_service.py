@@ -84,13 +84,38 @@ class RiskService:
             cols_path = os.path.join(self.models_dir, "model1_feature_cols.joblib")
             label_path = os.path.join(self.models_dir, "model1_label_map.joblib")
 
+            # Check if all required artifact files exist
+            missing_files = []
             if not os.path.exists(model_path):
-                raise FileNotFoundError(f"Model 1 artifact not found at {model_path}")
+                missing_files.append("model1_financial_risk_xgb.joblib")
+            if not os.path.exists(cols_path):
+                missing_files.append("model1_feature_cols.joblib")
+            if not os.path.exists(label_path):
+                missing_files.append("model1_label_map.joblib")
 
+            # If any artifact file is missing, set model to None and log MODEL_UNAVAILABLE
+            if missing_files:
+                self.model = None
+                self.feature_cols = []
+                self.label_map = {}
+                self.inv_label_map = {}
+                logger.error(f"MODEL_UNAVAILABLE: Missing required artifact files: {', '.join(missing_files)}")
+                return
+
+            # Load all artifacts
             self.model = joblib.load(model_path)
             self.feature_cols = joblib.load(cols_path)
             self.label_map = joblib.load(label_path)
             self.inv_label_map = {v: k for k, v in self.label_map.items()}
+
+            # Validate loaded feature_cols length equals 42
+            if len(self.feature_cols) != 42:
+                logger.error(f"MODEL_UNAVAILABLE: Invalid feature_cols length. Expected 42, got {len(self.feature_cols)}")
+                self.model = None
+                self.feature_cols = []
+                self.label_map = {}
+                self.inv_label_map = {}
+                return
 
             logger.info(f"Loaded Model 1 with {len(self.feature_cols)} feature columns. Labels: {self.label_map}")
 
@@ -103,8 +128,11 @@ class RiskService:
                 logger.warning(f"SHAP TreeExplainer initialization deferred/skipped: {e}")
 
         except Exception as e:
-            logger.error(f"Error loading Model 1 artifacts: {e}", exc_info=True)
-            raise
+            logger.error(f"MODEL_UNAVAILABLE: Error loading Model 1 artifacts: {e}", exc_info=True)
+            self.model = None
+            self.feature_cols = []
+            self.label_map = {}
+            self.inv_label_map = {}
 
     def build_feature_vector(self, raw_features: Dict[str, Any]) -> pd.DataFrame:
         row = {}
@@ -126,15 +154,59 @@ class RiskService:
         return pd.DataFrame([row], columns=self.feature_cols)
 
     def predict(self, raw_features: Dict[str, Any]) -> RiskPredictionResponse:
+        # Check if model is loaded
+        if self.model is None:
+            logger.error("MODEL_UNAVAILABLE: Model 1 XGBoost model is not loaded.")
+            return RiskPredictionResponse(
+                financialHealthScore=0.0,
+                riskLevel="Model Unavailable",
+                riskProbability=0.0,
+                explanation=None,
+                inference_source="MODEL_UNAVAILABLE"
+            )
+
+        # Validate feature vector length
+        if raw_features is None or len(raw_features) != len(self.feature_cols):
+            feature_count = len(raw_features) if raw_features else 0
+            logger.warning("INVALID_FEATURES: Feature vector length mismatch. Expected %d, got %d",
+                           len(self.feature_cols), feature_count)
+            return RiskPredictionResponse(
+                financialHealthScore=0.0,
+                riskLevel="Invalid Features",
+                riskProbability=0.0,
+                explanation=RiskExplanation(
+                    topDriver="unknown",
+                    topDriverReadable="Invalid Features",
+                    drivers=[]
+                ),
+                inference_source="INVALID_FEATURES"
+            )
+
+        # Validate feature names if model has feature_names_in_
+        if hasattr(self.model, "feature_names_in_"):
+            missing_cols = [c for c in self.model.feature_names_in_ if c not in raw_features]
+            if missing_cols:
+                logger.warning("INVALID_FEATURES: Missing feature columns: %s", missing_cols)
+                return RiskPredictionResponse(
+                    financialHealthScore=0.0,
+                    riskLevel="Invalid Features",
+                    riskProbability=0.0,
+                    explanation=RiskExplanation(
+                        topDriver="unknown",
+                        topDriverReadable="Missing Feature Columns",
+                        drivers=[]
+                    ),
+                    inference_source="INVALID_FEATURES"
+                )
+
         df = self.build_feature_vector(raw_features)
         
-        # Predict probabilities
+        # Predict probabilities using model.predict_proba
         probabilities = self.model.predict_proba(df)[0]
         pred_class_idx = int(np.argmax(probabilities))
         risk_level = self.inv_label_map.get(pred_class_idx, "Medium Risk")
         
         # Calculate Risk Probability (High risk class probability or weighted risk index)
-        # Class 0: High Risk, Class 1: Medium Risk, Class 2: Low Risk
         high_risk_prob = float(probabilities[0]) if len(probabilities) > 0 else 0.5
         med_risk_prob = float(probabilities[1]) if len(probabilities) > 1 else 0.3
         low_risk_prob = float(probabilities[2]) if len(probabilities) > 2 else 0.2
@@ -143,17 +215,20 @@ class RiskService:
         risk_probability = round(weighted_risk, 4)
         
         # Financial Health Score: 0 to 100
-        # High risk -> lower score; Low risk -> higher score
         health_score = round(max(5.0, min(100.0, (1.0 - weighted_risk) * 100.0)), 1)
         
         # Compute SHAP explanation
         explanation = self._compute_explanation(df)
 
+        logger.info("[ML_MODEL] Model 1 XGBoost prediction succeeded: riskLevel='%s', score=%.1f, prob=%.4f",
+                    risk_level, health_score, risk_probability)
+
         return RiskPredictionResponse(
             financialHealthScore=health_score,
             riskLevel=risk_level,
             riskProbability=risk_probability,
-            explanation=explanation
+            explanation=explanation,
+            inference_source="ML_MODEL"
         )
 
     def _compute_explanation(self, df: pd.DataFrame) -> RiskExplanation:

@@ -5,6 +5,7 @@ class FinancialRiskModel {
   final String topDriver;
   final String topDriverReadable;
   final List<DriverDetailModel> drivers;
+  final String inferenceSource;
 
   FinancialRiskModel({
     required this.financialHealthScore,
@@ -13,6 +14,7 @@ class FinancialRiskModel {
     required this.topDriver,
     required this.topDriverReadable,
     required this.drivers,
+    this.inferenceSource = 'ML_MODEL',
   });
 
   factory FinancialRiskModel.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,9 @@ class FinancialRiskModel {
               ?.map((e) => DriverDetailModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      inferenceSource: json['inferenceSource']?.toString() ??
+          json['inference_source']?.toString() ??
+          'ML_MODEL',
     );
   }
 }
@@ -83,11 +88,13 @@ class ExpenseForecastModel {
   final List<ForecastPointModel> food;
   final List<ForecastPointModel> nonFood;
   final List<ForecastPointModel> total;
+  final String inferenceSource;
 
   ExpenseForecastModel({
     required this.food,
     required this.nonFood,
     required this.total,
+    this.inferenceSource = 'ML_MODEL',
   });
 
   factory ExpenseForecastModel.fromJson(Map<String, dynamic> json) {
@@ -104,6 +111,9 @@ class ExpenseForecastModel {
               ?.map((e) => ForecastPointModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
+      inferenceSource: json['inferenceSource']?.toString() ??
+          json['inference_source']?.toString() ??
+          'ML_MODEL',
     );
   }
 }
@@ -150,12 +160,14 @@ class AiRecommendationModel {
   final String category;
   final String urgency;
   final List<ActionItemModel> actionItems;
+  final String inferenceSource;
 
   AiRecommendationModel({
     required this.recommendationText,
     required this.category,
     required this.urgency,
     required this.actionItems,
+    this.inferenceSource = 'ML_MODEL',
   });
 
   factory AiRecommendationModel.fromJson(Map<String, dynamic> json) {
@@ -168,6 +180,9 @@ class AiRecommendationModel {
               ?.map((e) => ActionItemModel.fromAny(e))
               .toList() ??
           [],
+      inferenceSource: json['inferenceSource']?.toString() ??
+          json['inference_source']?.toString() ??
+          'ML_MODEL',
     );
   }
 }

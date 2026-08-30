@@ -70,34 +70,44 @@ class RecommendationService:
             text_path = os.path.join(self.models_dir, "model3_recommendation_text.joblib")
             cols_path = os.path.join(self.models_dir, "model1_feature_cols.joblib")
 
+            missing = []
+            for path, name in [
+                (model_path, "model3_recommendation_xgb.joblib"),
+                (lmap_path, "model3_recommendation_label_map.joblib"),
+                (thresh_path, "model3_recommendation_thresholds.joblib"),
+                (text_path, "model3_recommendation_text.joblib"),
+            ]:
+                if not os.path.exists(path):
+                    missing.append(name)
+
+            if missing:
+                self.model = None
+                logger.warning("MODEL_UNAVAILABLE: Recommendation artifacts missing: %s. Rule fallback will be used.", missing)
+                return
+
             if os.path.exists(cols_path):
                 self.feature_cols = joblib.load(cols_path)
 
-            if os.path.exists(lmap_path):
-                raw_map = joblib.load(lmap_path)
-                if isinstance(raw_map, dict) and "rec_label_map" in raw_map:
-                    self.label_map = raw_map["rec_label_map"]
-                else:
-                    self.label_map = raw_map
-                self.inv_label_map = {v: k for k, v in self.label_map.items()}
+            raw_map = joblib.load(lmap_path)
+            if isinstance(raw_map, dict) and "rec_label_map" in raw_map:
+                self.label_map = raw_map["rec_label_map"]
+            else:
+                self.label_map = raw_map
+            self.inv_label_map = {v: k for k, v in self.label_map.items()}
 
-            if os.path.exists(thresh_path):
-                self.thresholds = joblib.load(thresh_path)
+            self.thresholds = joblib.load(thresh_path)
+            self.rec_text = joblib.load(text_path)
+            self.model = joblib.load(model_path)
 
-            if os.path.exists(text_path):
-                self.rec_text = joblib.load(text_path)
-
-            if os.path.exists(model_path):
-                self.model = joblib.load(model_path)
-                # Fallback for feature_cols if not loaded from file
-                if not self.feature_cols and hasattr(self.model, "feature_names_in_"):
-                    self.feature_cols = list(self.model.feature_names_in_)
+            if not self.feature_cols and hasattr(self.model, "feature_names_in_"):
+                self.feature_cols = list(self.model.feature_names_in_)
 
             logger.info("Loaded Model 3 Recommendation artifacts successfully. Model=%s, Features=%d",
                         type(self.model).__name__ if self.model else "None", len(self.feature_cols))
 
         except Exception as e:
-            logger.error(f"Error loading Model 3 Recommendation artifacts: {e}", exc_info=True)
+            self.model = None
+            logger.error(f"MODEL_UNAVAILABLE: Error loading Model 3 Recommendation artifacts: {e}", exc_info=True)
 
     def build_feature_vector(self, raw_features: Dict[str, Any]) -> pd.DataFrame:
         row = {}
@@ -149,7 +159,7 @@ class RecommendationService:
             logger.info("[RULE_FALLBACK] Generated recommendation via threshold/domain rules: '%s'", category)
 
         # 3. Construct Recommendation Text and Action Items
-        rec_text, action_items = self._build_recommendation_content(category, risk_level, health_score, top_driver)
+        rec_text, actionItems = self._build_recommendation_content(category, risk_level, health_score, top_driver)
 
         logger.info("Recommendation generated via %s for top_driver='%s' -> category='%s'",
                     inference_source, top_driver, category)
@@ -158,7 +168,8 @@ class RecommendationService:
             category=category,
             topDriver=top_driver,
             recommendation=rec_text,
-            actionItems=action_items
+            actionItems=actionItems,
+            inference_source=inference_source
         )
 
     def _generate_rule_fallback(self,
@@ -166,25 +177,26 @@ class RecommendationService:
                                 health_score: float,
                                 top_driver: str,
                                 features: Optional[Dict[str, Any]]) -> str:
-        """Deterministic safety baseline when ML Model 3 is unavailable."""
-        if features:
+        """Deterministic safety baseline when ML Model 3 is unavailable, referencing self.thresholds exclusively."""
+        if features and self.thresholds:
             d2i = float(features.get("debt_to_income_ratio", 0.0) or 0.0)
             e2i = float(features.get("expense_to_income_ratio", 0.0) or 0.0)
             savings_ratio = float(features.get("savings_ratio", 0.0) or 0.0)
-            per_capita = float(features.get("per_capita_income", 25000.0) or 25000.0)
+            per_capita = float(features.get("per_capita_income", 0.0) or 0.0)
 
-            d2i_high = self.thresholds.get("debt_to_income_high", 0.1314)
-            savings_low = self.thresholds.get("savings_ratio_low", 0.05)
-            e2i_high = self.thresholds.get("expense_to_income_high", 0.85)
-            per_capita_low = self.thresholds.get("per_capita_income_low", 10000.0)
+            # Rely exclusively on self.thresholds from model3_recommendation_thresholds.joblib
+            d2i_high = self.thresholds.get("debt_to_income_high")
+            savings_low = self.thresholds.get("savings_ratio_low")
+            e2i_high = self.thresholds.get("expense_to_income_high")
+            per_capita_low = self.thresholds.get("per_capita_income_low")
 
-            if d2i >= d2i_high and d2i > 0:
+            if d2i_high is not None and d2i >= d2i_high and d2i > 0:
                 return "Debt Reduction Plan"
-            elif savings_ratio <= savings_low:
+            elif savings_low is not None and savings_ratio <= savings_low:
                 return "Build Emergency Savings"
-            elif e2i >= e2i_high:
+            elif e2i_high is not None and e2i >= e2i_high:
                 return "Expense Optimization"
-            elif per_capita <= per_capita_low:
+            elif per_capita_low is not None and per_capita <= per_capita_low and per_capita > 0:
                 return "Increase Income / Employment Support"
             elif risk_level == "Low Risk" and health_score >= 75.0:
                 return "Maintain & Grow Wealth"

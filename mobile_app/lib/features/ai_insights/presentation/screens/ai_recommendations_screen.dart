@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../providers/ai_provider.dart';
+import '../widgets/ai_insight_cards.dart';
 
 /// Screen 25: AI Recommendations Screen — Live Data from AI Service
 class AIRecommendationsScreen extends ConsumerWidget {
@@ -61,44 +62,9 @@ class AIRecommendationsScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(20),
               children: [
                 // Main recommendation card
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: AppTheme.shadowMedium,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.auto_awesome,
-                              color: Colors.white, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            rec.category.toUpperCase(),
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        rec.recommendationText,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
+                RecommendationCard(
+                  recommendation: rec,
+                  onCompleteProfile: () => Navigator.pop(context),
                 ),
                 const SizedBox(height: 24),
                 const Text(

@@ -31,6 +31,21 @@ void main() {
       expect(model.drivers.length, 1);
       expect(model.drivers.first.feature, 'expense_to_income_ratio');
       expect(model.drivers.first.impact, 0.65);
+      expect(model.inferenceSource, 'ML_MODEL');
+    });
+
+    test('fromJson parses explicit inferenceSource correctly', () {
+      final json = {
+        'financialHealthScore': 0.0,
+        'riskLevel': 'Unknown',
+        'riskProbability': 0.0,
+        'topDriver': 'unknown',
+        'topDriverReadable': 'unknown',
+        'drivers': [],
+        'inferenceSource': 'INSUFFICIENT_DATA',
+      };
+      final model = FinancialRiskModel.fromJson(json);
+      expect(model.inferenceSource, 'INSUFFICIENT_DATA');
     });
   });
 
@@ -70,6 +85,18 @@ void main() {
       expect(model.total.length, 1);
       expect(model.total.first.predictedAmount, 65000.0);
       expect(model.total.first.date, '2026-09-01');
+      expect(model.inferenceSource, 'ML_MODEL');
+    });
+
+    test('fromJson parses INSUFFICIENT_HISTORY inferenceSource correctly', () {
+      final json = {
+        'food': [],
+        'nonFood': [],
+        'total': [],
+        'inferenceSource': 'INSUFFICIENT_HISTORY',
+      };
+      final model = ExpenseForecastModel.fromJson(json);
+      expect(model.inferenceSource, 'INSUFFICIENT_HISTORY');
     });
   });
 
@@ -92,6 +119,19 @@ void main() {
       expect(model.urgency, 'MEDIUM');
       expect(model.actionItems.length, 2);
       expect(model.actionItems.first.step, 'Review discretionary subscriptions');
+      expect(model.inferenceSource, 'ML_MODEL');
+    });
+
+    test('fromJson parses RULE_FALLBACK inferenceSource correctly', () {
+      final json = {
+        'recommendationText': 'Debt reduction is advised.',
+        'category': 'Debt Reduction Plan',
+        'urgency': 'HIGH',
+        'actionItems': [],
+        'inferenceSource': 'RULE_FALLBACK',
+      };
+      final model = AiRecommendationModel.fromJson(json);
+      expect(model.inferenceSource, 'RULE_FALLBACK');
     });
   });
 

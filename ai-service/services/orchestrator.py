@@ -44,6 +44,17 @@ class AIOrchestrator:
             features=request.features
         )
 
+        logger.info(
+            "AI analysis pipeline completed for userId=%s. Risk: %s (%s), Forecast: %s points (%s), Recommendation: %s (%s)",
+            request.userId,
+            risk_result.riskLevel,
+            risk_result.inference_source,
+            len(forecast_result.total),
+            forecast_result.inference_source,
+            rec_result.category,
+            rec_result.inference_source
+        )
+
         return CombinedAnalysisResponse(
             risk=risk_result,
             explanation=risk_result.explanation,

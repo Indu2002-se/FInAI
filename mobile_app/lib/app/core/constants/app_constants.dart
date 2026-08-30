@@ -25,7 +25,7 @@ class AppConstants {
     // Production backend - FinAI Backend Server
     // This is the deployed backend base path. Override it only at build time,
     // e.g. --dart-define=API_BASE_URL=https://your-domain.example/api.
-    const productionUrl = 'http://140.238.242.80/api';
+    const productionUrl = 'http://18.142.90.168/api';
 
     // A production build must never silently fall back to a local server.  That
     // can make an account appear to be created while its data is only written

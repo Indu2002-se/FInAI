@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../providers/ai_provider.dart';
+import '../widgets/ai_insight_cards.dart';
 
 /// Screen 24: Expense Forecast Screen — Live Prophet ML Forecast Data
 class ExpenseForecastScreen extends ConsumerWidget {
@@ -57,94 +58,40 @@ class ExpenseForecastScreen extends ConsumerWidget {
             ),
           ),
           data: (forecast) {
-            final totalList = forecast.total;
-            final nextMonth = totalList.isNotEmpty ? totalList.first : null;
-            final nextMonthAmount = nextMonth?.predictedAmount ?? 0.0;
-            final nextMonthDate = nextMonth?.date ?? 'Next Month';
-
             return SingleChildScrollView(
               padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      border: Border.all(color: Colors.blue.shade700, width: 2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          nextMonthDate.length >= 7
-                              ? nextMonthDate.substring(0, 7)
-                              : nextMonthDate,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.grey[700],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Rs.${nextMonthAmount.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.blue.shade800,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Next Month Predicted Total',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                        ),
-                      ],
-                    ),
+                  ForecastChart(
+                    forecast: forecast,
+                    onAddExpenses: () {
+                      Navigator.pop(context);
+                    },
                   ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    '6-MONTH PROJECTIONS',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.5,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (totalList.isEmpty)
-                    const Text('No forecast points available.')
-                  else
-                    ...totalList.map((pt) => _buildForecastItem(
-                          pt.date.length >= 7 ? pt.date.substring(0, 7) : pt.date,
-                          pt.predictedAmount,
-                          pt.lowerBound,
-                          pt.upperBound,
-                        )),
-                  const SizedBox(height: 24),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      border: Border.all(color: Colors.amber.shade700),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.info, color: Colors.amber.shade700, size: 20),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Prophet ML time-series forecast generated from your spending history and demographic profiles.',
-                            style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                  if (forecast.inferenceSource == 'ML_MODEL') ...[
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        border: Border.all(color: Colors.amber.shade700),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info, color: Colors.amber.shade700, size: 20),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Prophet ML time-series forecast generated from your spending history and demographic profiles.',
+                              style: TextStyle(fontSize: 12, color: Colors.grey[800]),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             );

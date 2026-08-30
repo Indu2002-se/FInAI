@@ -24,6 +24,7 @@ class RiskPredictionResponse(BaseModel):
     riskLevel: str
     riskProbability: float
     explanation: Optional[RiskExplanation] = None
+    inference_source: Optional[str] = "ML_MODEL"
 
 # ==================== Forecast Schemas ====================
 
@@ -49,6 +50,7 @@ class ForecastResponse(BaseModel):
     nonFood: List[ForecastPoint]
     total: List[ForecastPoint]
     forecastMonths: int = 6
+    inference_source: Optional[str] = "ML_MODEL"
 
 # ==================== Recommendation Schemas ====================
 
@@ -64,6 +66,7 @@ class RecommendationResponse(BaseModel):
     topDriver: str
     recommendation: str
     actionItems: List[str] = []
+    inference_source: Optional[str] = "ML_MODEL"
 
 # ==================== Combined Analysis Schemas ====================
 
@@ -75,7 +78,7 @@ class CombinedAnalysisRequest(BaseModel):
 
 class CombinedAnalysisResponse(BaseModel):
     risk: RiskPredictionResponse
-    explanation: RiskExplanation
+    explanation: Optional[RiskExplanation] = None
     forecast: ForecastResponse
     recommendation: RecommendationResponse
 
