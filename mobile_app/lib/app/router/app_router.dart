@@ -49,6 +49,7 @@ import '../../features/reports/presentation/screens/reports_dashboard_screen.dar
 import '../../features/reports/presentation/screens/monthly_report_screen.dart';
 
 // Savings Goals
+import '../../features/savings/data/models/savings_model.dart';
 import '../../features/savings/presentation/screens/savings_goals_dashboard_screen.dart';
 import '../../features/savings/presentation/screens/create_savings_goal_screen.dart';
 import '../../features/savings/presentation/screens/savings_goal_detail_screen.dart';
@@ -311,7 +312,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: RouteNames.childSavingsGoal,
         name: 'child-savings-goal',
-        builder: (context, state) => const ChildSavingsGoalScreen(),
+        builder: (context, state) {
+          final goal = state.extra as SavingsGoalModel?;
+          return ChildSavingsGoalScreen(goal: goal);
+        },
       ),
       GoRoute(
         path: RouteNames.choresRewards,

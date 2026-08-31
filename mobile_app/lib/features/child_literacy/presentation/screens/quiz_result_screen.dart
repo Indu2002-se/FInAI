@@ -1,13 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../app/core/widgets/custom_button.dart';
+import '../../../../app/router/route_names.dart';
+import '../../data/models/child_models.dart';
 
 /// Screen 36: Quiz Result Screen
+/// Receives a [ChildQuizResultModel] via [GoRouterState.extra] and
+/// displays the real score, points earned, and per-question breakdown.
 class QuizResultScreen extends ConsumerWidget {
   const QuizResultScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Receive live result from quiz submission
+    final result = GoRouterState.of(context).extra as ChildQuizResultModel?;
+
+    if (result == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('QUIZ RESULTS'),
+          centerTitle: true,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text('No result data available.'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => context.pop(),
+                child: const Text('Go Back'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final passed = result.passed;
+    final resultColor = passed ? Colors.green[700]! : Colors.orange[700]!;
+    final resultIcon =
+        passed ? Icons.emoji_events : Icons.sentiment_satisfied_alt;
+    final resultLabel = passed ? 'Great Job!' : 'Keep Practicing!';
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -29,7 +67,6 @@ class QuizResultScreen extends ConsumerWidget {
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,
-            // color: Colors.black87,
             letterSpacing: 0.5,
           ),
         ),
@@ -40,43 +77,54 @@ class QuizResultScreen extends ConsumerWidget {
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
+              // ── Result banner ──
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(32),
                 decoration: BoxDecoration(
-                  // color: Colors.green[50],
-                  border: Border.all(color: Colors.green[700]!, width: 2),
+                  border: Border.all(color: resultColor, width: 2),
                   borderRadius: BorderRadius.circular(12),
+                  color: resultColor.withValues(alpha: 0.05),
                 ),
                 child: Column(
                   children: [
-                    Icon(Icons.emoji_events, color: Colors.green[700], size: 64),
+                    Icon(resultIcon, color: resultColor, size: 64),
                     const SizedBox(height: 16),
-                    const Text(
-                      'Great Job!',
-                      style: TextStyle(
+                    Text(
+                      resultLabel,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      result.quizTitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[700],
+                      ),
+                    ),
                     const SizedBox(height: 16),
                     Text(
-                      '4 / 5',
+                      '${result.score} / ${result.totalQuestions}',
                       style: TextStyle(
                         fontSize: 48,
                         fontWeight: FontWeight.w800,
-                        // color: Colors.green[700],
+                        color: resultColor,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Correct Answers',
+                      'Correct Answers  •  ${result.scorePercentage.toStringAsFixed(0)}%',
                       style: TextStyle(fontSize: 14, color: Colors.grey[700]),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              // ── Points earned ──
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -91,93 +139,62 @@ class QuizResultScreen extends ConsumerWidget {
                         Icon(Icons.star, color: Colors.amber[700], size: 32),
                         const SizedBox(width: 12),
                         Text(
-                          '+100 Points',
-                          style: TextStyle(
+                          '+${result.earnedPoints} Points',
+                          style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
-                            // color: Colors.amber[700],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Text(
-                      'You earned 100 reward points!',
+                      passed
+                          ? 'You earned ${result.earnedPoints} reward points!'
+                          : 'Keep practicing to earn more points!',
                       style: TextStyle(fontSize: 13, color: Colors.grey[700]),
                     ),
+                    if (result.earnedBadge != null &&
+                        result.earnedBadge!.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.military_tech,
+                              color: Colors.amber, size: 20),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Badge Earned: ${result.earnedBadge}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
               const SizedBox(height: 32),
-              const Text(
-                'QUESTION BREAKDOWN',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
-                ),
+
+              // ── Action buttons ──
+              CustomButton(
+                text: 'Try Another Quiz',
+                onPressed: () {
+                  // Pop back to quiz list
+                  context.pop();
+                },
               ),
-              const SizedBox(height: 16),
-              _buildQuestionResult(1, 'What is the best way to save money?', true),
-              _buildQuestionResult(2, 'What is a budget?', true),
-              _buildQuestionResult(3, 'Why is it important to save?', false),
-              _buildQuestionResult(4, 'What is an expense?', true),
-              _buildQuestionResult(5, 'How can you earn money as a child?', true),
-              const SizedBox(height: 32),
-              CustomButton(text: 'Try Another Quiz', onPressed: () {}),
               const SizedBox(height: 12),
-              CustomButton(text: 'Back to Dashboard', variant: ButtonVariant.outline, onPressed: () {}),
+              CustomButton(
+                text: 'Back to Dashboard',
+                variant: ButtonVariant.outline,
+                onPressed: () => context.go(RouteNames.childDashboard),
+              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildQuestionResult(int number, String question, bool isCorrect) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        border: Border.all(
-          color: isCorrect ? Colors.green[300]! : Colors.red[300]!,
-        ),
-        borderRadius: BorderRadius.circular(10),
-        color: isCorrect ? Colors.green[50] : Colors.red[50],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: isCorrect ? Colors.green[700] : Colors.red[700],
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                '$number',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  // color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              question,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-            ),
-          ),
-          Icon(
-            isCorrect ? Icons.check_circle : Icons.cancel,
-            color: isCorrect ? Colors.green[700] : Colors.red[700],
-            size: 24,
-          ),
-        ],
       ),
     );
   }

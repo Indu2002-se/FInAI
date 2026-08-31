@@ -225,13 +225,15 @@ class _DashboardBody extends ConsumerWidget {
           // ── Financial Health Score ───────────────────────────────────────────
           Padding(
             padding: EdgeInsets.all(AppTheme.spacing20),
-            child: Container(
-              padding: EdgeInsets.all(AppTheme.spacing16),
-              decoration: BoxDecoration(
-                color: AppColors.white,
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                boxShadow: AppTheme.shadowCard,
-              ),
+            child: GestureDetector(
+              onTap: () => context.push(RouteNames.aiInsights),
+              child: Container(
+                padding: EdgeInsets.all(AppTheme.spacing16),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  boxShadow: AppTheme.shadowCard,
+                ),
               child: Column(
                 children: [
                   Row(
@@ -297,6 +299,7 @@ class _DashboardBody extends ConsumerWidget {
                       color: _healthColor(healthScore)),
                 ],
               ),
+            ),
             ),
           ),
 

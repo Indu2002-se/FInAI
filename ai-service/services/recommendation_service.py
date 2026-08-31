@@ -55,6 +55,7 @@ class RecommendationService:
     def __init__(self, models_dir: str):
         self.models_dir = models_dir
         self.model = None
+        self.feature_cols = []
         self.label_map = {}
         self.inv_label_map = {}
         self.thresholds = {}
@@ -67,6 +68,10 @@ class RecommendationService:
             lmap_path = os.path.join(self.models_dir, "model3_recommendation_label_map.joblib")
             thresh_path = os.path.join(self.models_dir, "model3_recommendation_thresholds.joblib")
             text_path = os.path.join(self.models_dir, "model3_recommendation_text.joblib")
+            cols_path = os.path.join(self.models_dir, "model1_feature_cols.joblib")
+
+            if os.path.exists(cols_path):
+                self.feature_cols = joblib.load(cols_path)
 
             if os.path.exists(lmap_path):
                 raw_map = joblib.load(lmap_path)
@@ -84,11 +89,33 @@ class RecommendationService:
 
             if os.path.exists(model_path):
                 self.model = joblib.load(model_path)
+                # Fallback for feature_cols if not loaded from file
+                if not self.feature_cols and hasattr(self.model, "feature_names_in_"):
+                    self.feature_cols = list(self.model.feature_names_in_)
 
-            logger.info("Loaded Model 3 Recommendation artifacts successfully.")
+            logger.info("Loaded Model 3 Recommendation artifacts successfully. Model=%s, Features=%d",
+                        type(self.model).__name__ if self.model else "None", len(self.feature_cols))
 
         except Exception as e:
             logger.error(f"Error loading Model 3 Recommendation artifacts: {e}", exc_info=True)
+
+    def build_feature_vector(self, raw_features: Dict[str, Any]) -> pd.DataFrame:
+        row = {}
+        for col in self.feature_cols:
+            val = raw_features.get(col, 0.0) if raw_features else 0.0
+            if val is None:
+                val = 0.0
+            if isinstance(val, bool):
+                val = 1.0 if val else 0.0
+            elif isinstance(val, (int, float)):
+                val = float(val)
+            else:
+                try:
+                    val = float(val)
+                except (ValueError, TypeError):
+                    val = 0.0
+            row[col] = val
+        return pd.DataFrame([row], columns=self.feature_cols)
 
     def generate(self, 
                  risk_level: str = "Medium Risk",
@@ -96,47 +123,36 @@ class RecommendationService:
                  top_driver: str = "expense_to_income_ratio",
                  features: Optional[Dict[str, Any]] = None) -> RecommendationResponse:
         
-        category = "Expense Optimization"
+        category = None
+        inference_source = "RULE_FALLBACK"
 
-        # Check features against Model 3 decision thresholds
-        if features:
-            d2i = float(features.get("debt_to_income_ratio", 0.0))
-            e2i = float(features.get("expense_to_income_ratio", 0.0))
-            savings_ratio = float(features.get("savings_ratio", 0.0))
-            per_capita = float(features.get("per_capita_income", 25000.0))
+        # 1. Attempt REAL XGBoost Model 3 Prediction
+        if self.model is not None and features is not None and len(self.feature_cols) > 0:
+            try:
+                df = self.build_feature_vector(features)
+                pred_classes = self.model.predict(df)
+                pred_class_idx = int(pred_classes[0])
+                predicted_category = self.inv_label_map.get(pred_class_idx)
+                
+                if predicted_category:
+                    category = predicted_category
+                    inference_source = "ML_MODEL"
+                    logger.info("[ML_MODEL] Model 3 XGBoost inference succeeded: predicted class %d -> '%s'",
+                                pred_class_idx, category)
+            except Exception as e:
+                logger.warning("Model 3 XGBoost prediction failed (%s). Using rule fallback.", e)
 
-            d2i_high = self.thresholds.get("debt_to_income_high", 0.15)
-            savings_low = self.thresholds.get("savings_ratio_low", 0.05)
-            e2i_high = self.thresholds.get("expense_to_income_high", 0.85)
-            per_capita_low = self.thresholds.get("per_capita_income_low", 10000.0)
+        # 2. Safety / Fallback Rule-Based Mechanism (Triggered only when ML model unavailable or failed)
+        if category is None:
+            inference_source = "RULE_FALLBACK"
+            category = self._generate_rule_fallback(risk_level, health_score, top_driver, features)
+            logger.info("[RULE_FALLBACK] Generated recommendation via threshold/domain rules: '%s'", category)
 
-            if d2i >= d2i_high and d2i > 0:
-                category = "Debt Reduction Plan"
-            elif savings_ratio <= savings_low:
-                category = "Build Emergency Savings"
-            elif e2i >= e2i_high:
-                category = "Expense Optimization"
-            elif per_capita <= per_capita_low:
-                category = "Increase Income / Employment Support"
-            elif risk_level == "Low Risk" and health_score >= 75.0:
-                category = "Maintain & Grow Wealth"
-            else:
-                category = "Expense Optimization"
-        else:
-            if "debt" in top_driver.lower():
-                category = "Debt Reduction Plan"
-            elif "savings" in top_driver.lower():
-                category = "Build Emergency Savings"
-            elif risk_level == "Low Risk" or health_score >= 80:
-                category = "Maintain & Grow Wealth"
-            elif "income" in top_driver.lower() and "ratio" not in top_driver.lower():
-                category = "Increase Income / Employment Support"
-            else:
-                category = "Expense Optimization"
+        # 3. Construct Recommendation Text and Action Items
+        rec_text, action_items = self._build_recommendation_content(category, risk_level, health_score, top_driver)
 
-        template = DEFAULT_RECOMMENDATION_MESSAGES.get(category, DEFAULT_RECOMMENDATION_MESSAGES["Expense Optimization"])
-        rec_text = template["text"]
-        action_items = template["actions"]
+        logger.info("Recommendation generated via %s for top_driver='%s' -> category='%s'",
+                    inference_source, top_driver, category)
 
         return RecommendationResponse(
             category=category,
@@ -144,3 +160,74 @@ class RecommendationService:
             recommendation=rec_text,
             actionItems=action_items
         )
+
+    def _generate_rule_fallback(self,
+                                risk_level: str,
+                                health_score: float,
+                                top_driver: str,
+                                features: Optional[Dict[str, Any]]) -> str:
+        """Deterministic safety baseline when ML Model 3 is unavailable."""
+        if features:
+            d2i = float(features.get("debt_to_income_ratio", 0.0) or 0.0)
+            e2i = float(features.get("expense_to_income_ratio", 0.0) or 0.0)
+            savings_ratio = float(features.get("savings_ratio", 0.0) or 0.0)
+            per_capita = float(features.get("per_capita_income", 25000.0) or 25000.0)
+
+            d2i_high = self.thresholds.get("debt_to_income_high", 0.1314)
+            savings_low = self.thresholds.get("savings_ratio_low", 0.05)
+            e2i_high = self.thresholds.get("expense_to_income_high", 0.85)
+            per_capita_low = self.thresholds.get("per_capita_income_low", 10000.0)
+
+            if d2i >= d2i_high and d2i > 0:
+                return "Debt Reduction Plan"
+            elif savings_ratio <= savings_low:
+                return "Build Emergency Savings"
+            elif e2i >= e2i_high:
+                return "Expense Optimization"
+            elif per_capita <= per_capita_low:
+                return "Increase Income / Employment Support"
+            elif risk_level == "Low Risk" and health_score >= 75.0:
+                return "Maintain & Grow Wealth"
+            else:
+                return "Expense Optimization"
+        else:
+            top_lower = top_driver.lower() if top_driver else ""
+            if "debt" in top_lower:
+                return "Debt Reduction Plan"
+            elif "savings" in top_lower:
+                return "Build Emergency Savings"
+            elif risk_level == "Low Risk" or health_score >= 80:
+                return "Maintain & Grow Wealth"
+            elif "income" in top_lower and "ratio" not in top_lower:
+                return "Increase Income / Employment Support"
+            else:
+                return "Expense Optimization"
+
+    def _build_recommendation_content(self,
+                                      category: str,
+                                      risk_level: str,
+                                      health_score: float,
+                                      top_driver: str) -> tuple[str, List[str]]:
+        """Constructs detailed recommendation explanation and actionable steps."""
+        template = DEFAULT_RECOMMENDATION_MESSAGES.get(category, DEFAULT_RECOMMENDATION_MESSAGES["Expense Optimization"])
+        base_text = template["text"]
+        actions = list(template["actions"])
+
+        # Enhance text if training artifact text is available
+        driver_desc = ""
+        action_desc = ""
+        if isinstance(self.rec_text, dict):
+            driver_map = self.rec_text.get("driver_text", {})
+            action_map = self.rec_text.get("action_text", {})
+            driver_desc = driver_map.get(top_driver, "")
+            action_desc = action_map.get(category, "")
+
+        if driver_desc and action_desc:
+            personalized_text = (
+                f"Your profile is assessed as {risk_level} (Financial Health Score: {round(health_score)}/100), "
+                f"driven mainly by {driver_desc}. Recommended focus: {category} — {action_desc}."
+            )
+            return personalized_text, actions
+
+        return base_text, actions
+

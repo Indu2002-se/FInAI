@@ -263,14 +263,13 @@ class ChildSavingsDashboardScreen extends ConsumerWidget {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: _buildGoalCard(
-                        goal.title,
-                        goal.targetAmount,
-                        goal.currentAmount,
+                        context,
+                        goal,
                         progress,
                         _getIconForCategory(goal.category),
                       ),
                     );
-                  }).toList(),
+                  }),
 
                 const SizedBox(height: 24),
 
@@ -287,8 +286,8 @@ class ChildSavingsDashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
 
                 InfoCard(
-                  title: 'Chores & Rewards',
-                  subtitle: '${dashboard.recommendedQuizzes.length} tasks',
+                  title: 'Tasks & Badges',
+                  subtitle: '${dashboard.recommendedQuizzes.length} quizzes available',
                   leading: const Icon(Icons.task_alt, color: Colors.blue, size: 28),
                   onTap: () => context.push(RouteNames.choresRewards),
                 ),
@@ -296,7 +295,7 @@ class ChildSavingsDashboardScreen extends ConsumerWidget {
 
                 InfoCard(
                   title: 'Financial Quiz',
-                  subtitle: 'Test your knowledge!',
+                  subtitle: 'Test your knowledge & earn points!',
                   leading: const Icon(Icons.quiz, color: Colors.orange, size: 28),
                   onTap: () => context.push(RouteNames.financialQuiz),
                 ),
@@ -304,9 +303,17 @@ class ChildSavingsDashboardScreen extends ConsumerWidget {
 
                 InfoCard(
                   title: 'My Wishlist',
-                  subtitle: '${dashboard.recentRewards.length} items',
+                  subtitle: '${dashboard.savingsGoals.length} wishlist goals',
                   leading: const Icon(Icons.star, color: Colors.amber, size: 28),
                   onTap: () => context.push(RouteNames.wishlist),
+                ),
+                const SizedBox(height: 12),
+
+                InfoCard(
+                  title: 'My Rewards',
+                  subtitle: '${dashboard.recentRewards.length} earned badges',
+                  leading: const Icon(Icons.emoji_events, color: Colors.purple, size: 28),
+                  onTap: () => context.push(RouteNames.rewards),
                 ),
               ],
             ),
@@ -316,46 +323,51 @@ class ChildSavingsDashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildGoalCard(String name, double target, double saved, double progress, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: Colors.blue, size: 32),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Rs.${saved.toStringAsFixed(0)} / Rs.${target.toStringAsFixed(0)}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                    ),
-                  ],
+  Widget _buildGoalCard(BuildContext context, dynamic goal, double progress, IconData icon) {
+    return InkWell(
+      onTap: () => context.push(RouteNames.childSavingsGoal, extra: goal),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: Colors.blue, size: 32),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        goal.title,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Rs.${goal.currentAmount.toStringAsFixed(0)} / Rs.${goal.targetAmount.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ProgressBarWidget(progress: progress),
-          const SizedBox(height: 8),
-          Text(
-            '${(progress * 100).toStringAsFixed(0)}% Complete',
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-          ),
-        ],
+                const Icon(Icons.chevron_right, color: Colors.grey),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ProgressBarWidget(progress: progress),
+            const SizedBox(height: 8),
+            Text(
+              '${(progress * 100).toStringAsFixed(0)}% Complete',
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+          ],
+        ),
       ),
     );
   }
