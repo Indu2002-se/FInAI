@@ -49,11 +49,16 @@ The 41 features must be constructed strictly from database entities (`UserProfil
 
 ---
 
-## 3. Expense Forecasting (Model 2 Prophet)
+## 3. Expense Forecasting (Model 2 Prophet — Option B)
 
-- **Minimum History Requirement**: Requires $\ge 3$ distinct calendar months of historical expense records.
-- **Output Horizon**: 3, 6, or 12 months ahead projection including predicted total, lower confidence bound, and upper confidence bound.
-- **Zero Synthetic Fallbacks**: When history is $< 3$ months, the service returns empty lists with `inference_source="INSUFFICIENT_HISTORY"`.
+- **Architecture (Option B: Personalized User-History Time-Series)**:
+  - Model 2 does not use static population averages or arbitrary multipliers for inference.
+  - Piecewise linear Facebook Prophet models are dynamically fitted directly on the user's personal monthly expenditure history (Food, Non-Food, Total).
+  - Hyperparameter priors (`changepoint_prior_scale`) are loaded from `model2_forecast_config.joblib`.
+  - Baseline reference models (`model2_food_prophet.joblib`, `model2_nonfood_prophet.joblib`, `model2_total_prophet.joblib`) are verified at startup to ensure environment and artifact integrity.
+- **Minimum History Requirement**: Requires $\ge 12$ distinct calendar months (1 complete annual cycle) of historical expense records to capture empirical annual trends and variance reliably.
+- **Output Horizon**: Configurable 3, 6, or 12 months ahead projection including predicted total, lower confidence bound, and upper confidence bound.
+- **Zero Synthetic Fallbacks**: When history is $< 12$ months, the service returns empty lists with `inference_source="INSUFFICIENT_HISTORY"`. No hardcoded baselines (no 5300, 82000, 87300, or arbitrary scaling) are used.
 
 ---
 

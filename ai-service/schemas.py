@@ -20,9 +20,9 @@ class RiskExplanation(BaseModel):
     drivers: List[RiskDriver]
 
 class RiskPredictionResponse(BaseModel):
-    financialHealthScore: float
+    financialHealthScore: Optional[float] = None
     riskLevel: str
-    riskProbability: float
+    riskProbability: Optional[float] = None
     explanation: Optional[RiskExplanation] = None
     inference_source: Optional[str] = "ML_MODEL"
 

@@ -261,7 +261,7 @@ class SavingsPlanModel {
   final int targetMonths;
   final double monthlyRequiredSavings;
   final double monthlySurplus;
-  final double feasibilityScore;
+  final double? feasibilityScore;
   final String feasibilityStatus;
   final String difficultyLevel;
   final List<SavingsPlanCategoryReduction> categoryReductions;
@@ -275,7 +275,7 @@ class SavingsPlanModel {
     required this.targetMonths,
     required this.monthlyRequiredSavings,
     required this.monthlySurplus,
-    required this.feasibilityScore,
+    this.feasibilityScore,
     required this.feasibilityStatus,
     required this.difficultyLevel,
     required this.categoryReductions,
@@ -291,9 +291,9 @@ class SavingsPlanModel {
       targetMonths: json['targetMonths'] as int? ?? 6,
       monthlyRequiredSavings: (json['monthlyRequiredSavings'] as num?)?.toDouble() ?? 0.0,
       monthlySurplus: (json['monthlySurplus'] as num?)?.toDouble() ?? 0.0,
-      feasibilityScore: (json['feasibilityScore'] as num?)?.toDouble() ?? 75.0,
-      feasibilityStatus: json['feasibilityStatus']?.toString() ?? 'Achievable',
-      difficultyLevel: json['difficultyLevel']?.toString() ?? 'MEDIUM',
+      feasibilityScore: (json['feasibilityScore'] as num?)?.toDouble(),
+      feasibilityStatus: json['feasibilityStatus']?.toString() ?? 'Data unavailable',
+      difficultyLevel: json['difficultyLevel']?.toString() ?? 'Data unavailable',
       categoryReductions: (json['categoryReductions'] as List<dynamic>?)
               ?.map((e) => SavingsPlanCategoryReduction.fromJson(e as Map<String, dynamic>))
               .toList() ??

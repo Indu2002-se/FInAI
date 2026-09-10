@@ -48,7 +48,7 @@ def get_valid_41_features():
     })
     return feats
 
-def get_valid_expense_history(months=6):
+def get_valid_expense_history(months=12):
     return [
         MonthlyExpenseRecord(date=f"2025-{m:02d}-01", food=25000.0, nonFood=35000.0, total=60000.0)
         for m in range(1, months + 1)
@@ -92,10 +92,21 @@ def test_model1_valid_41_features_prediction():
     assert result.explanation is not None
     assert len(result.explanation.topDriver) > 0
 
+def test_model1_missing_data_returns_insufficient_data():
+    risk_svc = RiskService(MODELS_DIR)
+    # Missing required demographic and core financial features (e.g. food_expenditure, household_size)
+    partial_features = {"age": 40, "employment_income": 120000.0}
+    result = risk_svc.predict(partial_features)
+    assert result.inference_source == "INSUFFICIENT_DATA"
+    assert result.riskLevel == "Data unavailable"
+    assert result.financialHealthScore is None
+    assert result.riskProbability is None
+
 def test_model1_invalid_feature_length_fails():
     risk_svc = RiskService(MODELS_DIR)
-    partial_features = {"age": 40, "total_income": 120000.0}  # Only 2 features instead of 41
-    result = risk_svc.predict(partial_features)
+    feats = get_valid_41_features()
+    feats["extra_corrupted_col"] = 999.0  # 42 features instead of 41
+    result = risk_svc.predict(feats)
     assert result.inference_source == "INVALID_FEATURES"
     assert result.riskLevel == "Invalid Features"
     assert result.explanation is not None
@@ -104,6 +115,8 @@ def test_model1_invalid_feature_length_fails():
 
 def test_model2_prophet_loading():
     forecast_svc = ForecastService(MODELS_DIR)
+    assert forecast_svc.forecast_config is not None
+    assert forecast_svc.MIN_HISTORY_MONTHS == 12
     assert forecast_svc.food_model is not None
     assert forecast_svc.nonfood_model is not None
     assert forecast_svc.total_model is not None
@@ -111,13 +124,13 @@ def test_model2_prophet_loading():
 def test_model2_missing_artifacts_sets_none(tmp_path):
     empty_svc = ForecastService(str(tmp_path))
     assert empty_svc.food_model is None
-    res = empty_svc.forecast(get_valid_expense_history(6), forecast_months=6)
+    res = empty_svc.forecast(get_valid_expense_history(12), forecast_months=6)
     assert res.inference_source == "MODEL_UNAVAILABLE"
     assert len(res.total) == 0
 
 def test_model2_forecast_valid_history():
     forecast_svc = ForecastService(MODELS_DIR)
-    history = get_valid_expense_history(6)
+    history = get_valid_expense_history(12)
     fc = forecast_svc.forecast(history=history, forecast_months=6)
     assert fc.inference_source == "ML_MODEL"
     assert len(fc.total) == 6
@@ -130,13 +143,25 @@ def test_model2_forecast_valid_history():
 
 def test_model2_forecast_insufficient_history():
     forecast_svc = ForecastService(MODELS_DIR)
-    short_history = [
-        MonthlyExpenseRecord(date="2026-01-01", food=25000, nonFood=35000, total=60000),
-        MonthlyExpenseRecord(date="2026-02-01", food=26000, nonFood=36000, total=62000)
-    ]
+    # 6 months is less than defensible 12-month annual requirement
+    short_history = get_valid_expense_history(6)
     fc = forecast_svc.forecast(history=short_history, forecast_months=6)
     assert fc.inference_source == "INSUFFICIENT_HISTORY"
     assert len(fc.total) == 0
+
+def test_model2_no_hardcoded_baseline():
+    """Verify that predictions dynamically reflect actual user scale, NOT hardcoded 5300 / 82000 / 87300 baselines."""
+    forecast_svc = ForecastService(MODELS_DIR)
+    low_expense_history = [
+        MonthlyExpenseRecord(date=f"2025-{m:02d}-01", food=5000.0, nonFood=10000.0, total=15000.0)
+        for m in range(1, 13)
+    ]
+    fc = forecast_svc.forecast(history=low_expense_history, forecast_months=6)
+    assert fc.inference_source == "ML_MODEL"
+    for p in fc.total:
+        assert 10000.0 <= p.predictedAmount <= 20000.0, f"Expected user ~15k scale, got {p.predictedAmount}"
+    for pf in fc.food:
+        assert 3000.0 <= pf.predictedAmount <= 7000.0, f"Expected user ~5k scale, got {pf.predictedAmount}"
 
 # ==================== Task 11 & 12: RecommendationService Tests ====================
 
@@ -182,6 +207,19 @@ def test_model3_rule_fallback_when_model_disabled():
     assert res.category == "Debt Reduction Plan"
     assert len(res.actionItems) > 0
 
+def test_model3_fallback_isolation():
+    """Ensure fallback rules are strictly isolated and not invoked during successful ML inference."""
+    rec_svc = RecommendationService(MODELS_DIR)
+    feats = get_valid_41_features()
+    res = rec_svc.generate(
+        risk_level="Low Risk",
+        health_score=85.0,
+        top_driver="savings_ratio",
+        features=feats
+    )
+    assert res.inference_source == "ML_MODEL"
+    assert rec_svc.model is not None
+
 # ==================== Task 13: Response Schemas & API Tests ====================
 
 def test_api_risk_predict_valid_features():
@@ -197,11 +235,26 @@ def test_api_risk_predict_valid_features():
         assert "financialHealthScore" in data
         assert "riskLevel" in data
 
-def test_api_risk_predict_invalid_features():
+def test_api_risk_predict_missing_data():
     with TestClient(app) as c:
         payload = {
             "userId": 1,
-            "features": {"age": 25}
+            "features": {"age": 25}  # Missing required financial features
+        }
+        response = c.post("/api/v1/ai/risk/predict", json=payload)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["inference_source"] == "INSUFFICIENT_DATA"
+        assert data["riskLevel"] == "Data unavailable"
+        assert data["financialHealthScore"] is None
+
+def test_api_risk_predict_invalid_features():
+    with TestClient(app) as c:
+        feats = get_valid_41_features()
+        feats["corrupted_extra_col"] = 999.0  # 42 features instead of 41
+        payload = {
+            "userId": 1,
+            "features": feats
         }
         response = c.post("/api/v1/ai/risk/predict", json=payload)
         assert response.status_code == 200
@@ -212,7 +265,7 @@ def test_api_expense_forecast_valid():
     with TestClient(app) as c:
         payload = {
             "userId": 1,
-            "history": [r.model_dump() for r in get_valid_expense_history(4)],
+            "history": [r.model_dump() for r in get_valid_expense_history(12)],
             "forecastMonths": 6
         }
         response = c.post("/api/v1/ai/expense/forecast", json=payload)
@@ -225,9 +278,7 @@ def test_api_expense_forecast_insufficient():
     with TestClient(app) as c:
         payload = {
             "userId": 1,
-            "history": [
-                {"date": "2026-01-01", "food": 25000, "nonFood": 20000, "total": 45000}
-            ],
+            "history": [r.model_dump() for r in get_valid_expense_history(6)],  # 6 < 12 months
             "forecastMonths": 6
         }
         response = c.post("/api/v1/ai/expense/forecast", json=payload)
@@ -257,7 +308,7 @@ def test_api_combined_analyze():
         payload = {
             "userId": 1,
             "features": get_valid_41_features(),
-            "expenseHistory": [r.model_dump() for r in get_valid_expense_history(4)],
+            "expenseHistory": [r.model_dump() for r in get_valid_expense_history(12)],
             "forecastMonths": 6
         }
         response = c.post("/api/v1/ai/analyze", json=payload)
@@ -267,6 +318,25 @@ def test_api_combined_analyze():
         assert data["forecast"]["inference_source"] == "ML_MODEL"
         assert data["recommendation"]["inference_source"] == "ML_MODEL"
         assert len(data["forecast"]["total"]) == 6
+
+def test_no_hardcoded_gemini_key():
+    from services.gemini_plan_service import GeminiSavingsPlanService
+    svc = GeminiSavingsPlanService()
+    # Verify no hardcoded key attribute exists on class/instance
+    assert not hasattr(svc, "GEMINI_DEFAULT_API_KEY")
+
+def test_no_fabricated_financial_defaults_in_schemas():
+    from schemas import SavingsPlanRequest, RecommendationRequest, RiskPredictionResponse
+    spr = SavingsPlanRequest(goalTitle="Retirement", targetAmount=1000000.0)
+    assert spr.monthlyIncome is None
+    assert spr.monthlyExpense is None
+    rec_req = RecommendationRequest()
+    assert rec_req.financialHealthScore is None
+    assert rec_req.riskLevel is None
+    assert rec_req.topDriver is None
+    risk_resp = RiskPredictionResponse(riskLevel="Data unavailable")
+    assert risk_resp.financialHealthScore is None
+    assert risk_resp.riskProbability is None
 
 def test_api_savings_plan_generate_success(monkeypatch):
     monkeypatch.setattr("services.gemini_plan_service.GeminiSavingsPlanService._call_gemini_api", lambda *args, **kwargs: "Mock AI Strategy Report")

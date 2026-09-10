@@ -75,13 +75,16 @@ class AISavingsPlanScreen extends ConsumerWidget {
             ),
           ),
           data: (plan) {
-            final isFeasible = plan.feasibilityScore >= 80;
-            final isModerate = plan.feasibilityScore >= 50;
-            final statusColor = isFeasible
-                ? AppColors.success
-                : isModerate
-                    ? AppColors.warning
-                    : AppColors.error;
+            final score = plan.feasibilityScore;
+            final isFeasible = score != null && score >= 80;
+            final isModerate = score != null && score >= 50;
+            final statusColor = score == null
+                ? AppColors.mediumGrey
+                : isFeasible
+                    ? AppColors.success
+                    : isModerate
+                        ? AppColors.warning
+                        : AppColors.error;
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(20),

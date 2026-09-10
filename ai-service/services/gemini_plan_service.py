@@ -7,11 +7,9 @@ from typing import Dict, Any, List, Optional
 
 logger = logging.getLogger("finai-ai.gemini-plan")
 
-GEMINI_DEFAULT_API_KEY = "AQ.Ab8RN6LhCG0U8I_SFcltAROARC92y0QsiNgfkwA2_0YE06uSMA"
-
 class GeminiSavingsPlanService:
     def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY", GEMINI_DEFAULT_API_KEY)
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
 
     def generate_plan(
         self,
@@ -143,8 +141,9 @@ class GeminiSavingsPlanService:
         status: str,
         category_expenses: Dict[str, float]
     ) -> Optional[str]:
-        api_key = self.api_key or os.getenv("GEMINI_API_KEY", GEMINI_DEFAULT_API_KEY)
+        api_key = self.api_key or os.getenv("GEMINI_API_KEY")
         if not api_key:
+            logger.info("GEMINI_API_KEY is not set. Using algorithmic savings plan report.")
             return None
 
         prompt = f"""
@@ -174,7 +173,7 @@ Format your response in clean Markdown with friendly headers, bullet points, and
 """
         models_to_try = ["gemini-1.5-flash", "gemini-flash-latest", "gemini-2.0-flash"]
         for model_name in models_to_try:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
             payload = {
                 "contents": [
                     {
@@ -204,7 +203,7 @@ Format your response in clean Markdown with friendly headers, bullet points, and
                         if text:
                             return text
             except Exception as e:
-                logger.warning(f"Gemini API request ({model_name}) failed: {e}")
+                logger.warning("Gemini API request (%s) failed: %s", model_name, type(e).__name__)
                 continue
         return None
 

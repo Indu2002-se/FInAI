@@ -134,12 +134,24 @@ class RiskService:
             self.label_map = {}
             self.inv_label_map = {}
 
+    REQUIRED_FEATURES = {
+        "age", "gender", "education", "marital_status", "household_size_f",
+        "employment_income", "total_income", "food_expenditure",
+        "nonfood_expenditure", "total_expenditure", "expense_to_income_ratio",
+        "financial_surplus", "savings_ratio", "per_capita_income", "employment_capacity"
+    }
+
     def build_feature_vector(self, raw_features: Dict[str, Any]) -> pd.DataFrame:
         row = {}
         for col in self.feature_cols:
-            val = raw_features.get(col, 0.0)
-            if val is None:
-                val = 0.0
+            if col in self.REQUIRED_FEATURES:
+                if col not in raw_features or raw_features[col] is None:
+                    raise ValueError(f"Missing required feature: {col}")
+                val = raw_features[col]
+            else:
+                val = raw_features.get(col, 0.0)
+                if val is None:
+                    val = 0.0
             # Handle categorical / numeric conversions
             if isinstance(val, bool):
                 val = 1.0 if val else 0.0
@@ -158,22 +170,53 @@ class RiskService:
         if self.model is None:
             logger.error("MODEL_UNAVAILABLE: Model 1 XGBoost model is not loaded.")
             return RiskPredictionResponse(
-                financialHealthScore=0.0,
+                financialHealthScore=None,
                 riskLevel="Model Unavailable",
-                riskProbability=0.0,
+                riskProbability=None,
                 explanation=None,
                 inference_source="MODEL_UNAVAILABLE"
             )
 
-        # Validate feature vector length
-        if raw_features is None or len(raw_features) != len(self.feature_cols):
-            feature_count = len(raw_features) if raw_features else 0
+        # Check for empty/missing raw features
+        if raw_features is None or len(raw_features) == 0:
+            logger.warning("INSUFFICIENT_DATA: No features provided")
+            return RiskPredictionResponse(
+                financialHealthScore=None,
+                riskLevel="Data unavailable",
+                riskProbability=None,
+                explanation=RiskExplanation(
+                    topDriver="unknown",
+                    topDriverReadable="Additional information required",
+                    drivers=[]
+                ),
+                inference_source="INSUFFICIENT_DATA"
+            )
+
+        # Check required features - missing required features produce INSUFFICIENT_DATA
+        missing_required = [c for c in self.REQUIRED_FEATURES if c not in raw_features or raw_features[c] is None]
+        if missing_required:
+            logger.warning("INSUFFICIENT_DATA: Missing required features: %s", missing_required)
+            return RiskPredictionResponse(
+                financialHealthScore=None,
+                riskLevel="Data unavailable",
+                riskProbability=None,
+                explanation=RiskExplanation(
+                    topDriver="unknown",
+                    topDriverReadable=f"Additional information required: missing {missing_required[0]}",
+                    drivers=[]
+                ),
+                inference_source="INSUFFICIENT_DATA"
+            )
+
+        # Validate feature vector length (if required features present but length mismatch, e.g. 42 or corrupted columns)
+        if len(raw_features) != len(self.feature_cols):
+            feature_count = len(raw_features)
             logger.warning("INVALID_FEATURES: Feature vector length mismatch. Expected %d, got %d",
                            len(self.feature_cols), feature_count)
             return RiskPredictionResponse(
-                financialHealthScore=0.0,
+                financialHealthScore=None,
                 riskLevel="Invalid Features",
-                riskProbability=0.0,
+                riskProbability=None,
                 explanation=RiskExplanation(
                     topDriver="unknown",
                     topDriverReadable="Invalid Features",
@@ -188,9 +231,9 @@ class RiskService:
             if missing_cols:
                 logger.warning("INVALID_FEATURES: Missing feature columns: %s", missing_cols)
                 return RiskPredictionResponse(
-                    financialHealthScore=0.0,
+                    financialHealthScore=None,
                     riskLevel="Invalid Features",
-                    riskProbability=0.0,
+                    riskProbability=None,
                     explanation=RiskExplanation(
                         topDriver="unknown",
                         topDriverReadable="Missing Feature Columns",
@@ -199,8 +242,22 @@ class RiskService:
                     inference_source="INVALID_FEATURES"
                 )
 
-        df = self.build_feature_vector(raw_features)
-        
+        try:
+            df = self.build_feature_vector(raw_features)
+        except ValueError as ve:
+            logger.warning("INSUFFICIENT_DATA during build_feature_vector: %s", ve)
+            return RiskPredictionResponse(
+                financialHealthScore=None,
+                riskLevel="Data unavailable",
+                riskProbability=None,
+                explanation=RiskExplanation(
+                    topDriver="unknown",
+                    topDriverReadable="Additional information required",
+                    drivers=[]
+                ),
+                inference_source="INSUFFICIENT_DATA"
+            )
+
         # Predict probabilities using model.predict_proba
         probabilities = self.model.predict_proba(df)[0]
         pred_class_idx = int(np.argmax(probabilities))

@@ -198,7 +198,7 @@ class RecommendationService:
                 return "Expense Optimization"
             elif per_capita_low is not None and per_capita <= per_capita_low and per_capita > 0:
                 return "Increase Income / Employment Support"
-            elif risk_level == "Low Risk" and health_score >= 75.0:
+            elif risk_level == "Low Risk" and health_score is not None and health_score >= 75.0:
                 return "Maintain & Grow Wealth"
             else:
                 return "Expense Optimization"

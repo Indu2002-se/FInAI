@@ -11,6 +11,19 @@ from schemas import ForecastResponse, ForecastPoint, MonthlyExpenseRecord
 logger = logging.getLogger("finai-ai.forecast")
 
 class ForecastService:
+    """
+    Model 2: Personalized Expense Forecaster using Facebook Prophet (Option B).
+    
+    Inference Design:
+    - Fits piecewise linear Prophet time-series models directly on the user's own empirical
+      expense history (Food, Non-Food, Total).
+    - Calibrated hyperparameters (changepoint_prior_scale) are loaded from model2_forecast_config.joblib.
+    - Reference artifacts (model2_food_prophet.joblib, etc.) establish baseline integrity.
+    - Requires at least 12 distinct calendar months of history (1 full annual cycle) for reliable trend estimation.
+    - Zero synthetic or hardcoded financial baselines (no 5300, no 82000, no arbitrary multipliers).
+    """
+    MIN_HISTORY_MONTHS = 12
+
     def __init__(self, models_dir: str):
         self.models_dir = models_dir
         self.food_model = None
@@ -46,7 +59,7 @@ class ForecastService:
             self.food_model = joblib.load(food_path)
             self.nonfood_model = joblib.load(nonfood_path)
             self.total_model = joblib.load(total_path)
-            logger.info("Loaded all 3 Model 2 Prophet models (Food, Non-Food, Total) and forecast config.")
+            logger.info("Loaded Model 2 configuration and baseline models successfully.")
 
         except Exception as e:
             logger.error(f"MODEL_UNAVAILABLE: Error loading Model 2 forecast artifacts: {e}", exc_info=True)
@@ -67,10 +80,10 @@ class ForecastService:
                 inference_source="MODEL_UNAVAILABLE"
             )
 
-        # Validate expense history sufficiency (minimum 3 distinct calendar months required)
-        if not history or len(history) < 3:
-            logger.warning("INSUFFICIENT_HISTORY: Expense history contains fewer than 3 months (%d provided)",
-                           len(history) if history else 0)
+        # Validate expense history sufficiency (minimum 12 distinct calendar months required for reliable annual trend)
+        if not history or len(history) < self.MIN_HISTORY_MONTHS:
+            logger.warning("INSUFFICIENT_HISTORY: Expense history contains fewer than %d months (%d provided)",
+                           self.MIN_HISTORY_MONTHS, len(history) if history else 0)
             return ForecastResponse(
                 food=[],
                 nonFood=[],
@@ -121,8 +134,9 @@ class ForecastService:
             month_map[k] = rec
         deduped = sorted(month_map.values(), key=lambda x: x["ds"])
 
-        if len(deduped) < 3:
-            logger.warning("INSUFFICIENT_HISTORY: Distinct historical months after deduplication is %d (< 3)", len(deduped))
+        if len(deduped) < self.MIN_HISTORY_MONTHS:
+            logger.warning("INSUFFICIENT_HISTORY: Distinct historical months after deduplication is %d (< %d)",
+                           len(deduped), self.MIN_HISTORY_MONTHS)
             return ForecastResponse(
                 food=[],
                 nonFood=[],
