@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../app/router/route_names.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../providers/ai_provider.dart';
 import '../widgets/ai_insight_cards.dart';
@@ -64,7 +66,7 @@ class AIRecommendationsScreen extends ConsumerWidget {
                 // Main recommendation card
                 RecommendationCard(
                   recommendation: rec,
-                  onCompleteProfile: () => Navigator.pop(context),
+                  onCompleteProfile: () => context.push(RouteNames.profile),
                 ),
                 const SizedBox(height: 24),
                 const Text(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../app/router/route_names.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../providers/ai_provider.dart';
 import '../widgets/ai_insight_cards.dart';
@@ -66,7 +68,7 @@ class ExpenseForecastScreen extends ConsumerWidget {
                   ForecastChart(
                     forecast: forecast,
                     onAddExpenses: () {
-                      Navigator.pop(context);
+                      context.push(RouteNames.addExpense);
                     },
                   ),
                   if (forecast.inferenceSource == 'ML_MODEL') ...[

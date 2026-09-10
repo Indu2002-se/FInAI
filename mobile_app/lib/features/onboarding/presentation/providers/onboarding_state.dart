@@ -82,6 +82,11 @@ class OnboardingState {
   /// Builds the wizard API payload matching WizardRequest.java
   Map<String, dynamic> toWizardJson() {
     return {
+      'age': age > 0 ? age : 25,
+      'gender': gender.isNotEmpty ? gender : 'Male',
+      'householdSize': householdSize > 0 ? householdSize : 1,
+      'dependentsCount': dependentsCount >= 0 ? dependentsCount : 0,
+      'currentDebt': currentDebt,
       'monthlyIncome': monthlyIncome,
       'monthlyExpense': monthlyExpense,
       'savingsGoal': savingsGoal,
