@@ -8,9 +8,9 @@ class DashboardModel {
   final double monthlyBudgetAllocated;
   final double monthlyBudgetSpent;
   final double budgetUsagePercentage;
-  final double financialHealthScore;
+  final double? financialHealthScore;
   final String riskLevel;
-  final double riskProbability;
+  final double? riskProbability;
   final String topRiskDriver;
   final String forecastSummary;
   final String latestRecommendation;
@@ -28,9 +28,9 @@ class DashboardModel {
     required this.monthlyBudgetAllocated,
     required this.monthlyBudgetSpent,
     required this.budgetUsagePercentage,
-    required this.financialHealthScore,
+    this.financialHealthScore,
     required this.riskLevel,
-    required this.riskProbability,
+    this.riskProbability,
     required this.topRiskDriver,
     required this.forecastSummary,
     required this.latestRecommendation,
@@ -50,12 +50,12 @@ class DashboardModel {
       monthlyBudgetAllocated: (json['monthlyBudgetAllocated'] as num?)?.toDouble() ?? 0.0,
       monthlyBudgetSpent: (json['monthlyBudgetSpent'] as num?)?.toDouble() ?? 0.0,
       budgetUsagePercentage: (json['budgetUsagePercentage'] as num?)?.toDouble() ?? 0.0,
-      financialHealthScore: (json['financialHealthScore'] as num?)?.toDouble() ?? 75.0,
-      riskLevel: json['riskLevel']?.toString() ?? 'Low Risk',
-      riskProbability: (json['riskProbability'] as num?)?.toDouble() ?? 0.20,
-      topRiskDriver: json['topRiskDriver']?.toString() ?? 'Expense Ratio',
-      forecastSummary: json['forecastSummary']?.toString() ?? 'Expense trend is stable',
-      latestRecommendation: json['latestRecommendation']?.toString() ?? 'Keep building emergency savings.',
+      financialHealthScore: (json['financialHealthScore'] as num?)?.toDouble(),
+      riskLevel: json['riskLevel']?.toString() ?? 'Data unavailable',
+      riskProbability: (json['riskProbability'] as num?)?.toDouble(),
+      topRiskDriver: json['topRiskDriver']?.toString() ?? 'Data unavailable',
+      forecastSummary: json['forecastSummary']?.toString() ?? 'Data unavailable',
+      latestRecommendation: json['latestRecommendation']?.toString() ?? 'Data unavailable',
       recentExpenses: (json['recentExpenses'] as List<dynamic>?)
               ?.map((e) => DashboardTransactionItem.fromJson(e as Map<String, dynamic>))
               .toList() ??

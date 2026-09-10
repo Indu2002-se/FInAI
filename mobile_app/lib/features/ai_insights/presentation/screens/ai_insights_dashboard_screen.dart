@@ -105,16 +105,18 @@ class AIInsightsDashboardScreen extends ConsumerWidget {
             final recommendation = aiData.recommendation;
 
             // 1. Health Score formatting
-            final healthScore = risk?.financialHealthScore ?? 75.0;
-            final healthScoreStr = '${healthScore.round()} / 100';
-            final healthColor = healthScore >= 75
-                ? AppColors.success
-                : healthScore >= 50
-                    ? AppColors.warning
-                    : AppColors.error;
+            final healthScore = risk?.financialHealthScore;
+            final healthScoreStr = healthScore != null ? '${healthScore.round()} / 100' : 'N/A';
+            final healthColor = healthScore == null
+                ? AppColors.mediumGrey
+                : healthScore >= 75
+                    ? AppColors.success
+                    : healthScore >= 50
+                        ? AppColors.warning
+                        : AppColors.error;
 
             // 2. Risk Level formatting
-            final riskLevel = risk?.riskLevel ?? 'Low Risk';
+            final riskLevel = risk?.riskLevel ?? 'Data unavailable';
             final riskColor = riskLevel.toLowerCase().contains('high')
                 ? AppColors.error
                 : riskLevel.toLowerCase().contains('medium')

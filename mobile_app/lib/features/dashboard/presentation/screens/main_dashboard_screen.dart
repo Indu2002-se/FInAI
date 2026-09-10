@@ -200,7 +200,8 @@ class _DashboardBody extends ConsumerWidget {
     }
   }
 
-  Color _healthColor(double score) {
+  Color _healthColor(double? score) {
+    if (score == null) return AppColors.mediumGrey;
     if (score >= 75) return AppColors.success;
     if (score >= 50) return AppColors.warning;
     return AppColors.error;
@@ -264,7 +265,7 @@ class _DashboardBody extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        healthScore.toStringAsFixed(0),
+                        healthScore != null ? healthScore.toStringAsFixed(0) : 'N/A',
                         style: TextStyle(
                             fontSize: 48,
                             fontWeight: FontWeight.w800,
@@ -295,7 +296,7 @@ class _DashboardBody extends ConsumerWidget {
                   SizedBox(height: AppTheme.spacing8),
                   // Inline progress bar
                   _LinearBar(
-                      value: healthScore / 100.0,
+                      value: healthScore != null ? healthScore / 100.0 : 0.0,
                       color: _healthColor(healthScore)),
                 ],
               ),

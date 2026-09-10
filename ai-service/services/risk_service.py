@@ -108,9 +108,9 @@ class RiskService:
             self.label_map = joblib.load(label_path)
             self.inv_label_map = {v: k for k, v in self.label_map.items()}
 
-            # Validate loaded feature_cols length equals 42
-            if len(self.feature_cols) != 42:
-                logger.error(f"MODEL_UNAVAILABLE: Invalid feature_cols length. Expected 42, got {len(self.feature_cols)}")
+            # Validate loaded feature_cols length equals 41
+            if len(self.feature_cols) != 41:
+                logger.error(f"MODEL_UNAVAILABLE: Invalid feature_cols length. Expected 41, got {len(self.feature_cols)}")
                 self.model = None
                 self.feature_cols = []
                 self.label_map = {}

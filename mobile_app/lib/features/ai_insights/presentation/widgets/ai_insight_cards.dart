@@ -176,14 +176,15 @@ class RiskCard extends StatelessWidget {
             style: TextStyle(fontSize: 13, color: Colors.grey[700]),
           ),
           const SizedBox(height: 12),
-          Text(
-            'Probability: ${(risk.riskProbability * 100).toStringAsFixed(1)}%',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color,
+          if (risk.riskProbability != null)
+            Text(
+              'Probability: ${(risk.riskProbability! * 100).toStringAsFixed(1)}%',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
-          ),
         ],
       ),
     );

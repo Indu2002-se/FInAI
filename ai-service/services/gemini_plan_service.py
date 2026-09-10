@@ -17,10 +17,10 @@ class GeminiSavingsPlanService:
         self,
         goal_title: str,
         target_amount: float,
+        monthly_income: float,
+        monthly_expense: float,
         current_amount: float = 0.0,
         target_months: int = 6,
-        monthly_income: float = 100000.0,
-        monthly_expense: float = 60000.0,
         current_savings: float = 0.0,
         total_debt: float = 0.0,
         category_expenses: Optional[Dict[str, float]] = None
@@ -29,6 +29,8 @@ class GeminiSavingsPlanService:
         Generates an AI-driven personalized savings plan for a financial goal using Gemini API,
         with a deterministic algorithmic fallback.
         """
+        if monthly_income <= 0.0 or monthly_expense <= 0.0:
+            raise ValueError("monthly_income and monthly_expense must be strictly greater than 0")
         net_target = max(0.0, target_amount - current_amount)
         months = max(1, target_months)
         monthly_required = round(net_target / months, 2)

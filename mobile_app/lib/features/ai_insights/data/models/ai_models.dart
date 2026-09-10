@@ -1,16 +1,16 @@
 class FinancialRiskModel {
-  final double financialHealthScore;
+  final double? financialHealthScore;
   final String riskLevel;
-  final double riskProbability;
+  final double? riskProbability;
   final String topDriver;
   final String topDriverReadable;
   final List<DriverDetailModel> drivers;
   final String inferenceSource;
 
   FinancialRiskModel({
-    required this.financialHealthScore,
+    this.financialHealthScore,
     required this.riskLevel,
-    required this.riskProbability,
+    this.riskProbability,
     required this.topDriver,
     required this.topDriverReadable,
     required this.drivers,
@@ -19,11 +19,11 @@ class FinancialRiskModel {
 
   factory FinancialRiskModel.fromJson(Map<String, dynamic> json) {
     return FinancialRiskModel(
-      financialHealthScore: (json['financialHealthScore'] as num?)?.toDouble() ?? 75.0,
-      riskLevel: json['riskLevel']?.toString() ?? 'Low Risk',
-      riskProbability: (json['riskProbability'] as num?)?.toDouble() ?? 0.20,
-      topDriver: json['topDriver']?.toString() ?? 'Expense Ratio',
-      topDriverReadable: json['topDriverReadable']?.toString() ?? 'Monthly Expense Ratio',
+      financialHealthScore: (json['financialHealthScore'] as num?)?.toDouble(),
+      riskLevel: json['riskLevel']?.toString() ?? 'Data unavailable',
+      riskProbability: (json['riskProbability'] as num?)?.toDouble(),
+      topDriver: json['topDriver']?.toString() ?? 'Data unavailable',
+      topDriverReadable: json['topDriverReadable']?.toString() ?? 'Data unavailable',
       drivers: (json['drivers'] as List<dynamic>?)
               ?.map((e) => DriverDetailModel.fromJson(e as Map<String, dynamic>))
               .toList() ??

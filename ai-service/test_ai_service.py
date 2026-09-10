@@ -21,7 +21,7 @@ if not os.path.exists(MODELS_DIR):
     if os.path.exists(alt_dir):
         MODELS_DIR = alt_dir
 
-def get_valid_42_features():
+def get_valid_41_features():
     cols = [
         "age", "gender", "education", "marital_status", "household_size_f",
         "employment_income", "other_income", "windfall_income", "agri_income",
@@ -30,7 +30,7 @@ def get_valid_42_features():
         "financial_surplus", "savings_ratio", "per_capita_income", "employment_capacity",
         "debt_amount", "debt_records", "debt_sources", "debt_to_income_ratio",
         "credit_card_debt", "has_credit_card_debt", "has_creditmix_match",
-        "credit_score", "credit_defaulted", "credit_clv", "credit_fraud_txn",
+        "credit_score", "credit_clv", "credit_fraud_txn",
         "cc_utilization_ratio", "cc_late_payments", "cc_credit_lines",
         "cc_debt_to_income_ratio", "cc_total_spend_last_year", "cc_avg_txn_amount",
         "cc_total_txns", "cc_tenure_years", "vehicle_ownership",
@@ -44,7 +44,7 @@ def get_valid_42_features():
         "expense_to_income_ratio": 0.50, "financial_surplus": 60000.0, "savings_ratio": 0.50,
         "per_capita_income": 30000.0, "employment_capacity": 1.0,
         "debt_amount": 0.0, "debt_records": 0.0, "debt_sources": 0.0, "debt_to_income_ratio": 0.0,
-        "credit_score": 740.0, "credit_defaulted": 0.0
+        "credit_score": 740.0
     })
     return feats
 
@@ -67,7 +67,8 @@ def test_health():
 def test_model1_artifact_loading_and_features():
     risk_svc = RiskService(MODELS_DIR)
     assert risk_svc.model is not None, "Model 1 artifact must load successfully"
-    assert len(risk_svc.feature_cols) == 42, "Model 1 must have exactly 42 feature columns"
+    assert len(risk_svc.feature_cols) == 41, "Model 1 must have exactly 41 feature columns"
+    assert "credit_defaulted" not in risk_svc.feature_cols, "credit_defaulted must be dropped due to target leakage"
     assert "expense_to_income_ratio" in risk_svc.feature_cols
     assert "debt_to_income_ratio" in risk_svc.feature_cols
     assert "savings_ratio" in risk_svc.feature_cols
@@ -76,13 +77,13 @@ def test_model1_artifact_loading_and_features():
 def test_model1_missing_artifact_sets_none(tmp_path):
     empty_svc = RiskService(str(tmp_path))
     assert empty_svc.model is None
-    res = empty_svc.predict(get_valid_42_features())
+    res = empty_svc.predict(get_valid_41_features())
     assert res.inference_source == "MODEL_UNAVAILABLE"
     assert res.riskLevel in ["Unknown", "Model Unavailable"]
 
-def test_model1_valid_42_features_prediction():
+def test_model1_valid_41_features_prediction():
     risk_svc = RiskService(MODELS_DIR)
-    feats = get_valid_42_features()
+    feats = get_valid_41_features()
     result = risk_svc.predict(feats)
     assert result.inference_source == "ML_MODEL"
     assert result.riskLevel in ["Low Risk", "Medium Risk", "High Risk"]
@@ -93,7 +94,7 @@ def test_model1_valid_42_features_prediction():
 
 def test_model1_invalid_feature_length_fails():
     risk_svc = RiskService(MODELS_DIR)
-    partial_features = {"age": 40, "total_income": 120000.0}  # Only 2 features instead of 42
+    partial_features = {"age": 40, "total_income": 120000.0}  # Only 2 features instead of 41
     result = risk_svc.predict(partial_features)
     assert result.inference_source == "INVALID_FEATURES"
     assert result.riskLevel == "Invalid Features"
@@ -142,7 +143,8 @@ def test_model2_forecast_insufficient_history():
 def test_model3_artifact_loading():
     rec_svc = RecommendationService(MODELS_DIR)
     assert rec_svc.model is not None
-    assert len(rec_svc.feature_cols) == 42
+    assert len(rec_svc.feature_cols) == 41
+    assert "credit_defaulted" not in rec_svc.feature_cols
     assert len(rec_svc.label_map) == 5
     assert "debt_to_income_high" in rec_svc.thresholds
 
@@ -154,7 +156,7 @@ def test_model3_missing_artifacts_sets_none(tmp_path):
 
 def test_model3_ml_prediction():
     rec_svc = RecommendationService(MODELS_DIR)
-    feats = get_valid_42_features()
+    feats = get_valid_41_features()
     res = rec_svc.generate(
         risk_level="Low Risk",
         health_score=85.0,
@@ -168,7 +170,7 @@ def test_model3_ml_prediction():
 def test_model3_rule_fallback_when_model_disabled():
     rec_svc = RecommendationService(MODELS_DIR)
     rec_svc.model = None  # disable model
-    feats = get_valid_42_features()
+    feats = get_valid_41_features()
     feats["debt_to_income_ratio"] = 0.5  # High debt
     res = rec_svc.generate(
         risk_level="High Risk",
@@ -186,7 +188,7 @@ def test_api_risk_predict_valid_features():
     with TestClient(app) as c:
         payload = {
             "userId": 1,
-            "features": get_valid_42_features()
+            "features": get_valid_41_features()
         }
         response = c.post("/api/v1/ai/risk/predict", json=payload)
         assert response.status_code == 200
@@ -241,7 +243,7 @@ def test_api_recommendation_generate():
             "riskLevel": "Low Risk",
             "financialHealthScore": 85.0,
             "topDriver": "savings_ratio",
-            "features": get_valid_42_features()
+            "features": get_valid_41_features()
         }
         response = c.post("/api/v1/ai/recommendation/generate", json=payload)
         assert response.status_code == 200
@@ -254,7 +256,7 @@ def test_api_combined_analyze():
     with TestClient(app) as c:
         payload = {
             "userId": 1,
-            "features": get_valid_42_features(),
+            "features": get_valid_41_features(),
             "expenseHistory": [r.model_dump() for r in get_valid_expense_history(4)],
             "forecastMonths": 6
         }
@@ -266,7 +268,8 @@ def test_api_combined_analyze():
         assert data["recommendation"]["inference_source"] == "ML_MODEL"
         assert len(data["forecast"]["total"]) == 6
 
-def test_api_savings_plan_generate():
+def test_api_savings_plan_generate_success(monkeypatch):
+    monkeypatch.setattr("services.gemini_plan_service.GeminiSavingsPlanService._call_gemini_api", lambda *args, **kwargs: "Mock AI Strategy Report")
     with TestClient(app) as c:
         payload = {
             "goalTitle": "Emergency Fund",
@@ -284,6 +287,66 @@ def test_api_savings_plan_generate():
         assert "feasibilityScore" in data
         assert "aiStrategyReport" in data
         assert len(data["milestones"]) == 6
+
+def test_api_savings_plan_missing_income_fails():
+    with TestClient(app) as c:
+        payload = {
+            "goalTitle": "Emergency Fund",
+            "targetAmount": 300000.0,
+            "currentAmount": 50000.0,
+            "targetMonths": 6
+            # monthlyIncome and monthlyExpense deliberately omitted
+        }
+        response = c.post("/api/v1/ai/savings-plan/generate", json=payload)
+        assert response.status_code == 400
+
+def test_input_sensitivity_user_a_vs_user_b():
+    """Verify that different users produce sensitive, distinct predictions reflecting real data."""
+    risk_svc = RiskService(MODELS_DIR)
+
+    # User A: High income, low expenditure, no debt, strong surplus
+    user_a = get_valid_41_features()
+    user_a.update({
+        "total_income": 200000.0,
+        "employment_income": 200000.0,
+        "total_expenditure": 50000.0,
+        "food_expenditure": 20000.0,
+        "nonfood_expenditure": 30000.0,
+        "expense_to_income_ratio": 0.25,
+        "financial_surplus": 150000.0,
+        "savings_ratio": 0.75,
+        "debt_amount": 0.0,
+        "debt_to_income_ratio": 0.0,
+        "credit_score": 780.0
+    })
+
+    # User B: Low income, high expenditure, high debt, negative surplus
+    user_b = get_valid_41_features()
+    user_b.update({
+        "total_income": 40000.0,
+        "employment_income": 40000.0,
+        "total_expenditure": 65000.0,
+        "food_expenditure": 25000.0,
+        "nonfood_expenditure": 40000.0,
+        "expense_to_income_ratio": 1.625,
+        "financial_surplus": -25000.0,
+        "savings_ratio": -0.625,
+        "debt_amount": 180000.0,
+        "debt_to_income_ratio": 4.5,
+        "credit_score": 520.0
+    })
+
+    res_a = risk_svc.predict(user_a)
+    res_b = risk_svc.predict(user_b)
+
+    assert res_a.inference_source == "ML_MODEL"
+    assert res_b.inference_source == "ML_MODEL"
+    assert res_a.financialHealthScore > res_b.financialHealthScore, (
+        f"User A score ({res_a.financialHealthScore}) should exceed User B ({res_b.financialHealthScore})"
+    )
+    assert res_a.riskProbability < res_b.riskProbability, (
+        f"User A risk prob ({res_a.riskProbability}) should be lower than User B ({res_b.riskProbability})"
+    )
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

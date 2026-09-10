@@ -129,7 +129,7 @@ class RecommendationService:
 
     def generate(self, 
                  risk_level: str = "Medium Risk",
-                 health_score: float = 60.0,
+                 health_score: Optional[float] = None,
                  top_driver: str = "expense_to_income_ratio",
                  features: Optional[Dict[str, Any]] = None) -> RecommendationResponse:
         
@@ -174,7 +174,7 @@ class RecommendationService:
 
     def _generate_rule_fallback(self,
                                 risk_level: str,
-                                health_score: float,
+                                health_score: Optional[float],
                                 top_driver: str,
                                 features: Optional[Dict[str, Any]]) -> str:
         """Deterministic safety baseline when ML Model 3 is unavailable, referencing self.thresholds exclusively."""
@@ -208,7 +208,7 @@ class RecommendationService:
                 return "Debt Reduction Plan"
             elif "savings" in top_lower:
                 return "Build Emergency Savings"
-            elif risk_level == "Low Risk" or health_score >= 80:
+            elif risk_level == "Low Risk" or (health_score is not None and health_score >= 80):
                 return "Maintain & Grow Wealth"
             elif "income" in top_lower and "ratio" not in top_lower:
                 return "Increase Income / Employment Support"
@@ -218,7 +218,7 @@ class RecommendationService:
     def _build_recommendation_content(self,
                                       category: str,
                                       risk_level: str,
-                                      health_score: float,
+                                      health_score: Optional[float],
                                       top_driver: str) -> tuple[str, List[str]]:
         """Constructs detailed recommendation explanation and actionable steps."""
         template = DEFAULT_RECOMMENDATION_MESSAGES.get(category, DEFAULT_RECOMMENDATION_MESSAGES["Expense Optimization"])
@@ -235,8 +235,9 @@ class RecommendationService:
             action_desc = action_map.get(category, "")
 
         if driver_desc and action_desc:
+            score_text = f" (Financial Health Score: {round(health_score)}/100)" if health_score is not None else ""
             personalized_text = (
-                f"Your profile is assessed as {risk_level} (Financial Health Score: {round(health_score)}/100), "
+                f"Your profile is assessed as {risk_level}{score_text}, "
                 f"driven mainly by {driver_desc}. Recommended focus: {category} — {action_desc}."
             )
             return personalized_text, actions

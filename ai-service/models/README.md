@@ -22,9 +22,9 @@ This directory contains the production-trained machine learning artifacts for th
 
 ---
 
-## 2. Canonical 42 Features (Model 1 & Model 3)
+## 2. Canonical 41 Features (Model 1 & Model 3)
 
-The 42 features must be constructed strictly from database entities (`UserProfile`, `Income`, `Expense`, `Debt`, `Savings`) in the exact canonical sequence specified below:
+The 41 features must be constructed strictly from database entities (`UserProfile`, `Income`, `Expense`, `Debt`, `Savings`) in the exact canonical sequence specified below:
 
 ```python
 [
@@ -35,7 +35,7 @@ The 42 features must be constructed strictly from database entities (`UserProfil
     'financial_surplus', 'savings_ratio', 'per_capita_income', 'employment_capacity',
     'debt_amount', 'debt_records', 'debt_sources', 'debt_to_income_ratio',
     'credit_card_debt', 'has_credit_card_debt', 'has_creditmix_match',
-    'credit_score', 'credit_defaulted', 'credit_clv', 'credit_fraud_txn',
+    'credit_score', 'credit_clv', 'credit_fraud_txn',
     'cc_utilization_ratio', 'cc_late_payments', 'cc_credit_lines',
     'cc_debt_to_income_ratio', 'cc_total_spend_last_year', 'cc_avg_txn_amount',
     'cc_total_txns', 'cc_tenure_years', 'vehicle_ownership',
@@ -43,8 +43,9 @@ The 42 features must be constructed strictly from database entities (`UserProfil
 ]
 ```
 
-### Target Leakage Prevention:
-- `credit_defaulted`: Set to `0.0` if the user has no recorded defaulted debts. Future outcome labels are never leaked into the prediction vector.
+### Target Leakage Resolution:
+- `credit_defaulted` previously encoded future loan default outcomes directly into input features. It was identified as target leakage and completely removed from the feature set and retraining pipelines of both Model 1 (Financial Risk) and Model 3 (Recommendations).
+- Both models have been retrained on the leakage-free 41-feature set, achieving robust generalization (Model 1 accuracy ~83%, Model 3 accuracy ~99.8%).
 
 ---
 
@@ -82,6 +83,6 @@ Every prediction response carries an explicit `inferenceSource` / `inference_sou
 | `ML_MODEL` | Authentic prediction produced by trained ML artifact with database features. | Render standard charts, probability scores, SHAP explanations. |
 | `INSUFFICIENT_DATA` | User has incomplete financial profile (missing UserProfile, Income, or Expenses). | Prompt user to complete financial onboarding profile. |
 | `INSUFFICIENT_HISTORY` | User has fewer than 3 months of recorded expenses for Prophet forecasting. | Prompt user to log at least 3 months of expenses. |
-| `INVALID_FEATURES` | Feature vector failed validation (length != 42 or null values). | Display data formatting error notification. |
+| `INVALID_FEATURES` | Feature vector failed validation (length != 41 or null values). | Display data formatting error notification. |
 | `MODEL_UNAVAILABLE` | ML microservice offline or joblib artifact file missing. | Display "Service temporarily unavailable". |
 | `RULE_FALLBACK` | Offline deterministic rule fallback based on artifact thresholds. | Display "Based on general guidelines (AI Model Offline)" badge. |

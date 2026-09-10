@@ -16,10 +16,7 @@ class ForecastService:
         self.food_model = None
         self.nonfood_model = None
         self.total_model = None
-        self.forecast_config = {
-            "future_periods": 6,
-            "frequency": "MS"
-        }
+        self.forecast_config = None
         self.load_artifacts()
 
     def load_artifacts(self):
@@ -39,6 +36,7 @@ class ForecastService:
 
             if missing_files:
                 logger.error(f"MODEL_UNAVAILABLE: Missing required Model 2 forecast artifacts: {', '.join(missing_files)}")
+                self.forecast_config = None
                 self.food_model = None
                 self.nonfood_model = None
                 self.total_model = None
@@ -52,14 +50,15 @@ class ForecastService:
 
         except Exception as e:
             logger.error(f"MODEL_UNAVAILABLE: Error loading Model 2 forecast artifacts: {e}", exc_info=True)
+            self.forecast_config = None
             self.food_model = None
             self.nonfood_model = None
             self.total_model = None
 
     def forecast(self, history: List[MonthlyExpenseRecord], forecast_months: int = 6) -> ForecastResponse:
-        # Check if models are available
-        if self.food_model is None or self.nonfood_model is None or self.total_model is None:
-            logger.error("MODEL_UNAVAILABLE: Prophet models are not loaded.")
+        # Check if forecast configuration and models are available
+        if self.forecast_config is None or self.food_model is None or self.nonfood_model is None or self.total_model is None:
+            logger.error("MODEL_UNAVAILABLE: Forecast configuration or models are not loaded.")
             return ForecastResponse(
                 food=[],
                 nonFood=[],
@@ -68,7 +67,7 @@ class ForecastService:
                 inference_source="MODEL_UNAVAILABLE"
             )
 
-        # Validate expense history sufficiency (minimum 3 months required)
+        # Validate expense history sufficiency (minimum 3 distinct calendar months required)
         if not history or len(history) < 3:
             logger.warning("INSUFFICIENT_HISTORY: Expense history contains fewer than 3 months (%d provided)",
                            len(history) if history else 0)
@@ -80,37 +79,107 @@ class ForecastService:
                 inference_source="INSUFFICIENT_HISTORY"
             )
 
+        # Validate entries and convert to timestamps
+        parsed_records = []
+        for r in history:
+            try:
+                raw_date = r.date.strip()
+                if len(raw_date) == 7:
+                    dt = datetime.strptime(raw_date, "%Y-%m")
+                else:
+                    dt = datetime.strptime(raw_date[:10], "%Y-%m-%d")
+                dt = datetime(dt.year, dt.month, 1)
+
+                food_val = float(r.food if r.food is not None else 0.0)
+                nonfood_val = float(r.nonFood if r.nonFood is not None else 0.0)
+                total_val = float(r.total if r.total is not None else (food_val + nonfood_val))
+
+                if total_val <= 0.0 and (food_val > 0 or nonfood_val > 0):
+                    total_val = food_val + nonfood_val
+
+                if total_val < 0.0 or food_val < 0.0 or nonfood_val < 0.0:
+                    logger.warning("Negative expenditure detected in history record: %s", r)
+                    continue
+
+                parsed_records.append({
+                    "ds": dt,
+                    "food": max(0.0, food_val),
+                    "nonFood": max(0.0, nonfood_val),
+                    "total": max(0.0, total_val)
+                })
+            except Exception as e:
+                logger.warning("Failed to parse history record %s: %s", r, e)
+                continue
+
+        # Sort chronologically by date
+        parsed_records.sort(key=lambda x: x["ds"])
+
+        # Deduplicate by distinct calendar month
+        month_map: Dict[str, Dict[str, Any]] = {}
+        for rec in parsed_records:
+            k = rec["ds"].strftime("%Y-%m")
+            month_map[k] = rec
+        deduped = sorted(month_map.values(), key=lambda x: x["ds"])
+
+        if len(deduped) < 3:
+            logger.warning("INSUFFICIENT_HISTORY: Distinct historical months after deduplication is %d (< 3)", len(deduped))
+            return ForecastResponse(
+                food=[],
+                nonFood=[],
+                total=[],
+                forecastMonths=0,
+                inference_source="INSUFFICIENT_HISTORY"
+            )
+
+        # Build Prophet time series dataframes
+        df_hist = pd.DataFrame(deduped)
         future_periods = max(1, min(24, int(forecast_months or self.forecast_config.get("future_periods", 6))))
-        
-        # Determine starting date (first of next month)
-        now = datetime.now()
-        start_date = datetime(now.year, now.month, 1) + relativedelta(months=1)
+
+        latest_dt = deduped[-1]["ds"]
+        start_date = datetime(latest_dt.year, latest_dt.month, 1) + relativedelta(months=1)
         future_dates = [start_date + relativedelta(months=i) for i in range(future_periods)]
-        future_df = pd.DataFrame({'ds': future_dates})
+        future_df = pd.DataFrame({"ds": future_dates})
 
         try:
-            fc_food = self.food_model.predict(future_df)
-            fc_nf = self.nonfood_model.predict(future_df)
-            fc_tot = self.total_model.predict(future_df)
+            from prophet import Prophet
+
+            food_prior = float(self.forecast_config.get("food_changepoint_prior_scale", 0.05))
+            nf_prior = float(self.forecast_config.get("nonfood_changepoint_prior_scale", 0.2))
+            tot_prior = float(self.forecast_config.get("total_changepoint_prior_scale", 0.2))
+
+            # Fit Food model on real user data
+            m_food = Prophet(growth="linear", yearly_seasonality=False, weekly_seasonality=False, daily_seasonality=False, changepoint_prior_scale=food_prior)
+            m_food.fit(pd.DataFrame({"ds": df_hist["ds"], "y": df_hist["food"]}))
+            fc_food = m_food.predict(future_df)
+
+            # Fit Non-Food model on real user data
+            m_nf = Prophet(growth="linear", yearly_seasonality=False, weekly_seasonality=False, daily_seasonality=False, changepoint_prior_scale=nf_prior)
+            m_nf.fit(pd.DataFrame({"ds": df_hist["ds"], "y": df_hist["nonFood"]}))
+            fc_nf = m_nf.predict(future_df)
+
+            # Fit Total model on real user data
+            m_tot = Prophet(growth="linear", yearly_seasonality=False, weekly_seasonality=False, daily_seasonality=False, changepoint_prior_scale=tot_prior)
+            m_tot.fit(pd.DataFrame({"ds": df_hist["ds"], "y": df_hist["total"]}))
+            fc_tot = m_tot.predict(future_df)
 
             food_points: List[ForecastPoint] = []
             nonfood_points: List[ForecastPoint] = []
             total_points: List[ForecastPoint] = []
 
             for i, dt in enumerate(future_dates):
-                date_str = dt.strftime('%Y-%m-%d')
-                
-                raw_f = float(fc_food.iloc[i]['yhat'])
-                low_f = float(fc_food.iloc[i].get('yhat_lower', raw_f * 0.92))
-                up_f = float(fc_food.iloc[i].get('yhat_upper', raw_f * 1.08))
+                date_str = dt.strftime("%Y-%m-%d")
 
-                raw_nf = float(fc_nf.iloc[i]['yhat'])
-                low_nf = float(fc_nf.iloc[i].get('yhat_lower', raw_nf * 0.90))
-                up_nf = float(fc_nf.iloc[i].get('yhat_upper', raw_nf * 1.10))
+                raw_f = float(fc_food.iloc[i]["yhat"])
+                low_f = float(fc_food.iloc[i].get("yhat_lower", raw_f * 0.92))
+                up_f = float(fc_food.iloc[i].get("yhat_upper", raw_f * 1.08))
 
-                raw_tot = float(fc_tot.iloc[i]['yhat'])
-                low_tot = float(fc_tot.iloc[i].get('yhat_lower', raw_tot * 0.91))
-                up_tot = float(fc_tot.iloc[i].get('yhat_upper', raw_tot * 1.09))
+                raw_nf = float(fc_nf.iloc[i]["yhat"])
+                low_nf = float(fc_nf.iloc[i].get("yhat_lower", raw_nf * 0.90))
+                up_nf = float(fc_nf.iloc[i].get("yhat_upper", raw_nf * 1.10))
+
+                raw_tot = float(fc_tot.iloc[i]["yhat"])
+                low_tot = float(fc_tot.iloc[i].get("yhat_lower", raw_tot * 0.91))
+                up_tot = float(fc_tot.iloc[i].get("yhat_upper", raw_tot * 1.09))
 
                 pred_f = round(max(0.0, raw_f), 2)
                 pred_nf = round(max(0.0, raw_nf), 2)
@@ -120,7 +189,7 @@ class ForecastService:
                 nonfood_points.append(ForecastPoint(date=date_str, predictedAmount=pred_nf, lowerBound=round(max(0.0, low_nf), 2), upperBound=round(max(pred_nf, up_nf), 2)))
                 total_points.append(ForecastPoint(date=date_str, predictedAmount=pred_tot, lowerBound=round(max(0.0, low_tot), 2), upperBound=round(max(pred_tot, up_tot), 2)))
 
-            logger.info("[ML_MODEL] Successfully generated %d monthly forecast periods using Prophet models", future_periods)
+            logger.info("[ML_MODEL] Successfully generated %d personalized monthly forecast periods using Prophet on user history", future_periods)
             return ForecastResponse(
                 food=food_points,
                 nonFood=nonfood_points,
@@ -128,8 +197,9 @@ class ForecastService:
                 forecastMonths=future_periods,
                 inference_source="ML_MODEL"
             )
+
         except Exception as pe:
-            logger.error("Prophet prediction failed: %s", pe, exc_info=True)
+            logger.error("Prophet user-level forecasting failed: %s", pe, exc_info=True)
             return ForecastResponse(
                 food=[],
                 nonFood=[],

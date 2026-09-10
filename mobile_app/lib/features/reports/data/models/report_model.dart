@@ -9,7 +9,7 @@ class MonthlyReportModel {
   final double budgetAllocated;
   final double budgetSpent;
   final double budgetVariance;
-  final double financialHealthScore;
+  final double? financialHealthScore;
   final String riskLevel;
   final String topRiskDriver;
   final String aiRecommendation;
@@ -25,7 +25,7 @@ class MonthlyReportModel {
     required this.budgetAllocated,
     required this.budgetSpent,
     required this.budgetVariance,
-    required this.financialHealthScore,
+    this.financialHealthScore,
     required this.riskLevel,
     required this.topRiskDriver,
     required this.aiRecommendation,
@@ -50,10 +50,10 @@ class MonthlyReportModel {
       budgetAllocated: (json['budgetAllocated'] as num?)?.toDouble() ?? 0.0,
       budgetSpent: (json['budgetSpent'] as num?)?.toDouble() ?? 0.0,
       budgetVariance: (json['budgetVariance'] as num?)?.toDouble() ?? 0.0,
-      financialHealthScore: (json['financialHealthScore'] as num?)?.toDouble() ?? 75.0,
-      riskLevel: json['riskLevel']?.toString() ?? 'Low Risk',
-      topRiskDriver: json['topRiskDriver']?.toString() ?? 'Expense Ratio',
-      aiRecommendation: json['aiRecommendation']?.toString() ?? 'Maintain balanced spending habits.',
+      financialHealthScore: (json['financialHealthScore'] as num?)?.toDouble(),
+      riskLevel: json['riskLevel']?.toString() ?? 'Data unavailable',
+      topRiskDriver: json['topRiskDriver']?.toString() ?? 'Data unavailable',
+      aiRecommendation: json['aiRecommendation']?.toString() ?? 'Data unavailable',
     );
   }
 }

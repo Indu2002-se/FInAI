@@ -121,6 +121,8 @@ async def forecast_expense(request: ForecastRequest):
             history=request.history or [],
             forecast_months=request.forecastMonths or 6
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in forecast_expense: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -134,10 +136,12 @@ async def generate_recommendation(request: RecommendationRequest):
             raise HTTPException(status_code=500, detail="Recommendation service not initialized")
         return rec_svc.generate(
             risk_level=request.riskLevel or "Medium Risk",
-            health_score=request.financialHealthScore or 60.0,
+            health_score=request.financialHealthScore,
             top_driver=request.topDriver or "expense_to_income_ratio",
             features=request.features
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in generate_recommendation: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -150,6 +154,8 @@ async def analyze_full_profile(request: CombinedAnalysisRequest):
         if not orch_svc:
             raise HTTPException(status_code=500, detail="AI orchestrator not initialized")
         return orch_svc.analyze(request)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in analyze_full_profile: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
@@ -161,17 +167,25 @@ async def generate_savings_plan(request: SavingsPlanRequest):
         gemini_svc: GeminiSavingsPlanService = services.get("gemini_plan")
         if not gemini_svc:
             raise HTTPException(status_code=500, detail="Gemini Savings Plan service not initialized")
+        
+        if request.monthlyIncome is None or request.monthlyIncome <= 0:
+            raise HTTPException(status_code=400, detail="monthlyIncome is required and must be greater than 0")
+        if request.monthlyExpense is None or request.monthlyExpense <= 0:
+            raise HTTPException(status_code=400, detail="monthlyExpense is required and must be greater than 0")
+
         return gemini_svc.generate_plan(
             goal_title=request.goalTitle,
             target_amount=request.targetAmount,
             current_amount=request.currentAmount or 0.0,
             target_months=request.targetMonths or 6,
-            monthly_income=request.monthlyIncome or 100000.0,
-            monthly_expense=request.monthlyExpense or 60000.0,
+            monthly_income=request.monthlyIncome,
+            monthly_expense=request.monthlyExpense,
             current_savings=request.currentSavings or 0.0,
             total_debt=request.totalDebt or 0.0,
             category_expenses=request.categoryExpenses
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error in generate_savings_plan: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

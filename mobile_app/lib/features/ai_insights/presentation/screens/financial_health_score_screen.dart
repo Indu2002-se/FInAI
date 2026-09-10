@@ -58,12 +58,14 @@ class FinancialHealthScoreScreen extends ConsumerWidget {
           ),
           data: (risk) {
             final score = risk.financialHealthScore;
-            final scoreInt = score.round();
-            final color = score >= 75
-                ? AppColors.success
-                : score >= 50
-                    ? AppColors.warning
-                    : AppColors.error;
+            final scoreInt = score?.round();
+            final color = score == null
+                ? AppColors.mediumGrey
+                : score >= 75
+                    ? AppColors.success
+                    : score >= 50
+                        ? AppColors.warning
+                        : AppColors.error;
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(20),
@@ -82,20 +84,21 @@ class FinancialHealthScoreScreen extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          '$scoreInt',
+                          scoreInt != null ? '$scoreInt' : 'N/A',
                           style: TextStyle(
-                            fontSize: 48,
+                            fontSize: scoreInt != null ? 48 : 28,
                             fontWeight: FontWeight.w800,
                             color: color,
                           ),
                         ),
-                        const Text(
-                          '/ 100',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
+                        if (scoreInt != null)
+                          const Text(
+                            '/ 100',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.grey,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -108,7 +111,9 @@ class FinancialHealthScoreScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '${risk.riskLevel} (${(risk.riskProbability * 100).toStringAsFixed(1)}% Risk Probability)',
+                      risk.riskProbability != null
+                          ? '${risk.riskLevel} (${(risk.riskProbability! * 100).toStringAsFixed(1)}% Risk Probability)'
+                          : risk.riskLevel,
                       style: TextStyle(
                         color: color,
                         fontWeight: FontWeight.w700,

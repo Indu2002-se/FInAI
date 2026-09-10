@@ -160,7 +160,9 @@ class ProfileScreen extends ConsumerWidget {
                         const Divider(height: 16),
                         _buildSummaryRow(
                           'Financial Health Score',
-                          '${data.financialHealthScore.toStringAsFixed(0)} / 100 (${data.riskLevel})',
+                          data.financialHealthScore != null
+                              ? '${data.financialHealthScore!.toStringAsFixed(0)} / 100 (${data.riskLevel})'
+                              : 'N/A (${data.riskLevel})',
                           AppColors.darkTeal,
                         ),
                       ],

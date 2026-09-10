@@ -56,9 +56,9 @@ class ForecastResponse(BaseModel):
 
 class RecommendationRequest(BaseModel):
     userId: Optional[int] = 1
-    riskLevel: Optional[str] = "Medium Risk"
-    financialHealthScore: Optional[float] = 60.0
-    topDriver: Optional[str] = "expense_to_income_ratio"
+    riskLevel: Optional[str] = None
+    financialHealthScore: Optional[float] = None
+    topDriver: Optional[str] = None
     features: Optional[Dict[str, Any]] = None
 
 class RecommendationResponse(BaseModel):
@@ -89,8 +89,8 @@ class SavingsPlanRequest(BaseModel):
     targetAmount: float
     currentAmount: Optional[float] = 0.0
     targetMonths: Optional[int] = 6
-    monthlyIncome: Optional[float] = 100000.0
-    monthlyExpense: Optional[float] = 60000.0
+    monthlyIncome: Optional[float] = None
+    monthlyExpense: Optional[float] = None
     currentSavings: Optional[float] = 0.0
     totalDebt: Optional[float] = 0.0
     categoryExpenses: Optional[Dict[str, float]] = None
