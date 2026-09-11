@@ -75,6 +75,7 @@ import '../../features/transaction_detection/data/models/detected_transaction.da
 import '../../features/transaction_detection/presentation/screens/detected_transactions_page.dart';
 import '../../features/transaction_detection/presentation/screens/transaction_review_page.dart';
 import '../../features/transaction_detection/presentation/screens/detection_settings_page.dart';
+import '../../features/transaction_detection/presentation/screens/sms_detection_setup_screen.dart';
 
 import 'route_names.dart';
 
@@ -120,6 +121,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
 
       // ==================== Onboarding Routes ====================
+      GoRoute(
+        path: RouteNames.smsDetectionSetup,
+        name: 'sms-detection-setup',
+        builder: (context, state) {
+          final userKey = state.uri.queryParameters['user'];
+          return SmsDetectionSetupScreen(userKey: userKey);
+        },
+      ),
       GoRoute(
         path: RouteNames.onboardingWelcome,
         name: 'onboarding-welcome',

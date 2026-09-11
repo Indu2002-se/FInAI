@@ -19,10 +19,10 @@ class ForecastService:
       expense history (Food, Non-Food, Total).
     - Calibrated hyperparameters (changepoint_prior_scale) are loaded from model2_forecast_config.joblib.
     - Reference artifacts (model2_food_prophet.joblib, etc.) establish baseline integrity.
-    - Requires at least 12 distinct calendar months of history (1 full annual cycle) for reliable trend estimation.
+    - Requires at least 3 distinct calendar months of history for a usable trend estimate.
     - Zero synthetic or hardcoded financial baselines (no 5300, no 82000, no arbitrary multipliers).
     """
-    MIN_HISTORY_MONTHS = 12
+    MIN_HISTORY_MONTHS = 3
 
     def __init__(self, models_dir: str):
         self.models_dir = models_dir
@@ -80,7 +80,7 @@ class ForecastService:
                 inference_source="MODEL_UNAVAILABLE"
             )
 
-        # Validate expense history sufficiency (minimum 12 distinct calendar months required for reliable annual trend)
+        # Validate expense history sufficiency (minimum 3 distinct calendar months)
         if not history or len(history) < self.MIN_HISTORY_MONTHS:
             logger.warning("INSUFFICIENT_HISTORY: Expense history contains fewer than %d months (%d provided)",
                            self.MIN_HISTORY_MONTHS, len(history) if history else 0)

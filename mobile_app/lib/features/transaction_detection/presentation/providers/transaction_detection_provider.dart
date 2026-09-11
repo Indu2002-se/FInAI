@@ -4,6 +4,7 @@ import '../../../budget/presentation/providers/budget_provider.dart';
 import '../../../dashboard/presentation/providers/dashboard_provider.dart';
 import '../../../expense/presentation/providers/expense_provider.dart';
 import '../../../income/presentation/providers/income_provider.dart';
+import '../../data/datasources/native_transaction_capture.dart';
 import '../../data/datasources/notification_datasource.dart';
 import '../../data/datasources/sms_datasource.dart';
 import '../../data/models/detected_transaction.dart';
@@ -106,6 +107,37 @@ class TransactionDetectionNotifier extends StateNotifier<AsyncValue<void>> {
     );
     if (parsed == null) return null;
     return recordTransaction(parsed);
+  }
+
+  /// Enable SMS detection and import debit/credit SMS from the full recent inbox.
+  Future<int> enableSmsAndSyncInbox() async {
+    final current = await repo.getSettings();
+    await repo.updateSettings(current.copyWith(smsEnabled: true));
+    ref.invalidate(detectionSettingsProvider);
+
+    final hasPermission = await NativeTransactionCapture.hasSmsPermission();
+    if (!hasPermission) return 0;
+
+    // Full recent-inbox scan (sinceMs=0 → last 365 days on Android).
+    await NativeTransactionCapture.setLastSmsSyncMs(0);
+    final inbox = await NativeTransactionCapture.readSmsInbox(sinceMs: 0);
+    var saved = 0;
+    for (final event in inbox) {
+      final parsed = smsDatasource.processIncomingSms(
+        sender: event['sender']?.toString() ?? 'Unknown sender',
+        messageBody: event['text']?.toString() ?? '',
+      );
+      if (parsed == null) continue;
+      // Debit / credit / transfer only (parser already filters UNKNOWN).
+      final result = await recordTransaction(parsed);
+      if (result != null && result.status != 'DUPLICATE') saved++;
+    }
+    await NativeTransactionCapture.setLastSmsSyncMs(
+      DateTime.now().millisecondsSinceEpoch,
+    );
+    ref.invalidate(pendingDetectedTransactionsProvider);
+    ref.invalidate(allDetectedTransactionsProvider);
+    return saved;
   }
 
   Future<bool> updateSettings(DetectionSettingsModel settings) async {

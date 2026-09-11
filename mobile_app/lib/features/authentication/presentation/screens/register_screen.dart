@@ -7,6 +7,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../providers/auth_notifier.dart';
 import '../providers/auth_state.dart';
 import '../widgets/google_sign_in_button.dart';
+import '../../../transaction_detection/presentation/screens/sms_detection_setup_screen.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -87,11 +88,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       next.whenOrNull(
         authenticated: (user) {
-          if (user.profileComplete) {
-            context.go(RouteNames.dashboard);
-          } else {
-            context.go(RouteNames.onboardingWelcome);
-          }
+          goAfterSignupAuth(
+            context,
+            profileComplete: user.profileComplete,
+            userKey: user.email.isNotEmpty ? user.email : user.id,
+          );
         },
         error: (message) {
           ScaffoldMessenger.of(context).showSnackBar(

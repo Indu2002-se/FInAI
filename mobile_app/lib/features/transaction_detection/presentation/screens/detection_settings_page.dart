@@ -116,20 +116,29 @@ class _DetectionSettingsPageState extends ConsumerState<DetectionSettingsPage> {
                         value: settings.smsEnabled,
                         activeColor: AppColors.darkTeal,
                         onChanged: (val) async {
-                          if (val &&
-                              !await NativeTransactionCapture.requestSmsPermission()) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Allow SMS permission, then turn on detection.',
+                          if (val) {
+                            final granted = await NativeTransactionCapture
+                                .requestSmsPermission();
+                            final hasPermission = granted ||
+                                await NativeTransactionCapture.hasSmsPermission();
+                            if (!hasPermission) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'Allow SMS permission, then turn on detection.',
+                                    ),
                                   ),
-                                ),
-                              );
+                                );
+                              }
+                              return;
                             }
+                            await ref
+                                .read(transactionDetectionNotifierProvider.notifier)
+                                .enableSmsAndSyncInbox();
                             return;
                           }
-                          _updateSettings(settings.copyWith(smsEnabled: val));
+                          _updateSettings(settings.copyWith(smsEnabled: false));
                         },
                       ),
                       const Divider(),

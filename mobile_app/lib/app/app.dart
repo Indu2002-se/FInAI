@@ -55,11 +55,11 @@ class _AppState extends ConsumerState<App> with WidgetsBindingObserver {
       }
 
       if (settings.smsEnabled) {
-        final hasPermission = await NativeTransactionCapture.hasSmsPermission();
+        var hasPermission = await NativeTransactionCapture.hasSmsPermission();
         if (!hasPermission) {
-          await NativeTransactionCapture.requestSmsPermission();
+          hasPermission = await NativeTransactionCapture.requestSmsPermission();
         }
-        if (await NativeTransactionCapture.hasSmsPermission()) {
+        if (hasPermission || await NativeTransactionCapture.hasSmsPermission()) {
           final lastSync = await NativeTransactionCapture.getLastSmsSyncMs();
           final inbox = await NativeTransactionCapture.readSmsInbox(sinceMs: lastSync);
           for (final event in inbox) {

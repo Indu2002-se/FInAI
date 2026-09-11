@@ -31,12 +31,25 @@ class TransactionParser {
     }
 
     // Amount extraction
-    final amount = _extractAmount(cleanText);
+    var amount = _extractAmount(cleanText);
+
+    // 1b. If amount exists but type unclear, classify bank SMS by cues / sender.
+    if (transactionType == 'UNKNOWN' && amount != null && amount > 0) {
+      if (_looksLikeBankMessage(lowerText, sender)) {
+        if (_softCreditHint(lowerText)) {
+          transactionType = 'CREDIT';
+        } else {
+          transactionType = 'DEBIT';
+        }
+      }
+    }
+
     if (amount == null || amount <= 0) {
       return null;
     }
+    final resolvedAmount = amount;
 
-    // Only keep bank/transaction-like messages (amount + debit/credit/transfer cues)
+    // Keep debit / credit / transfer only (skip OTP and normal chats)
     if (transactionType == 'UNKNOWN') {
       return null;
     }
@@ -58,7 +71,7 @@ class TransactionParser {
 
     // 7. Calculate confidence
     double confidence = 0.0;
-    if (amount > 0) confidence += 0.30;
+    if (resolvedAmount > 0) confidence += 0.30;
     if (transactionType != 'UNKNOWN') confidence += 0.25;
     if (merchant != null && merchant.isNotEmpty) confidence += 0.20;
     if (accountRef != null && accountRef.isNotEmpty) confidence += 0.15;
@@ -66,14 +79,15 @@ class TransactionParser {
     confidence = (confidence * 100).roundToDouble() / 100.0;
 
     // 8. Hash raw text for deduplication
-    final rawTextHash = _generateHash('${sender ?? ""}_${amount.toStringAsFixed(2)}_$cleanText');
+    final rawTextHash =
+        _generateHash('${sender ?? ""}_${resolvedAmount.toStringAsFixed(2)}_$cleanText');
 
     return DetectedTransactionModel(
       id: 0,
       sourceType: sourceType,
       sourceApp: sourceApp ?? sender,
       sourceSender: sender,
-      amount: amount,
+      amount: resolvedAmount,
       transactionType: transactionType,
       merchant: merchant,
       accountReference: accountRef,
@@ -98,20 +112,28 @@ class TransactionParser {
 
   static bool _isDebit(String text) {
     return text.contains('debited') ||
+        text.contains(' debit') ||
         text.contains('paid') ||
         text.contains('spent') ||
         text.contains('purchase') ||
         text.contains('withdrawn') ||
         text.contains('withdrew') ||
+        text.contains('withdrawal') ||
         text.contains('payment of') ||
+        text.contains('payment to') ||
         text.contains('deducted') ||
         text.contains('bill payment') ||
         text.contains('sent to') ||
-        text.contains('dr.');
+        text.contains('dr.') ||
+        text.contains('dr ') ||
+        text.contains('pos ') ||
+        text.contains('atm ') ||
+        text.contains('charged');
   }
 
   static bool _isCredit(String text) {
     return text.contains('credited') ||
+        text.contains(' credit') ||
         text.contains('received') ||
         text.contains('deposited') ||
         text.contains('deposit of') ||
@@ -119,7 +141,35 @@ class TransactionParser {
         text.contains('refund') ||
         text.contains('cashback') ||
         text.contains('salary') ||
-        text.contains('cr.');
+        text.contains('cr.') ||
+        text.contains('cr ') ||
+        text.contains('inward') ||
+        text.contains('received from');
+  }
+
+  static bool _softCreditHint(String text) {
+    return text.contains('credit') ||
+        text.contains('received') ||
+        text.contains('deposit') ||
+        text.contains('salary') ||
+        text.contains('refund') ||
+        text.contains('cashback');
+  }
+
+  static bool _looksLikeBankMessage(String lowerText, String? sender) {
+    final senderUpper = (sender ?? '').toUpperCase();
+    for (final bank in bankSenders) {
+      if (senderUpper.contains(bank) || lowerText.contains(bank.toLowerCase())) {
+        return true;
+      }
+    }
+    return lowerText.contains('a/c') ||
+        lowerText.contains('acct') ||
+        lowerText.contains('account') ||
+        lowerText.contains('avail bal') ||
+        lowerText.contains('available balance') ||
+        lowerText.contains('ref:') ||
+        lowerText.contains('txn');
   }
 
   static double? _extractAmount(String text) {

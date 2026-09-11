@@ -41,6 +41,12 @@ object TransactionCaptureEvents {
 }
 
 class MainActivity : FlutterActivity() {
+    companion object {
+        private const val SMS_PERMISSION_REQUEST_CODE = 8101
+    }
+
+    private var pendingSmsPermissionResult: MethodChannel.Result? = null
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, "com.finai.mobile/transaction_capture/events")
@@ -92,7 +98,7 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun hasSmsPermission() =
+    private fun hasSmsPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
 
@@ -101,12 +107,26 @@ class MainActivity : FlutterActivity() {
             result.success(true)
             return
         }
+        // Wait for the system dialog — do not return false before the user answers.
+        pendingSmsPermissionResult?.success(false)
+        pendingSmsPermissionResult = result
         ActivityCompat.requestPermissions(
             this,
             arrayOf(Manifest.permission.RECEIVE_SMS, Manifest.permission.READ_SMS),
-            8101,
+            SMS_PERMISSION_REQUEST_CODE,
         )
-        result.success(false)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray,
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != SMS_PERMISSION_REQUEST_CODE) return
+        val granted = hasSmsPermission()
+        pendingSmsPermissionResult?.success(granted)
+        pendingSmsPermissionResult = null
     }
 
     private fun readSmsInbox(sinceMs: Long): List<Map<String, String>> {

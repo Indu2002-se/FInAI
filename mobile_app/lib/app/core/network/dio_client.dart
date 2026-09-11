@@ -39,9 +39,21 @@ class DioClient {
     RequestInterceptorHandler handler,
   ) async {
     try {
-      final token = await secureStorage.getToken();
-      if (token != null) {
-        options.headers['Authorization'] = 'Bearer $token';
+      // Never attach a stale JWT to public auth calls — it forces the backend
+      // JWT filter to hit the database before login/register can run.
+      final path = options.path.toLowerCase();
+      final isPublicAuth = path.contains('/auth/login') ||
+          path.contains('/auth/register') ||
+          path.contains('/auth/firebase') ||
+          path.contains('/auth/child-login');
+
+      if (!isPublicAuth) {
+        final token = await secureStorage.getToken();
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+      } else {
+        options.headers.remove('Authorization');
       }
       handler.next(options);
     } catch (e) {
@@ -157,13 +169,17 @@ class DioClient {
       case DioExceptionType.receiveTimeout:
       case DioExceptionType.sendTimeout:
         return TimeoutException(
-          message: 'Request timeout. Please check your network connection.',
+          message:
+              'Server took too long to respond (${AppConstants.baseUrl}). '
+              'The API may be up but the database is slow or unavailable — try again shortly.',
           originalException: error,
         );
 
       case DioExceptionType.connectionError:
         return NetworkException(
-          message: 'Cannot connect to backend server. Please check your network or server URL.',
+          message:
+              'Cannot reach ${AppConstants.baseUrl}. '
+              'Check phone internet, or restart the backend/MySQL on the server.',
           originalException: error,
         );
 

@@ -70,6 +70,7 @@ class RouteNames {
   // Automatic Transaction Detection routes
   static const String detectedTransactions = '/transactions/detected';
   static const String detectionSettings = '/transactions/detection-settings';
+  static const String smsDetectionSetup = '/onboarding/sms-detection-setup';
   static const String transactionReview = '/transactions/detected/review';
 
   // Settings routes

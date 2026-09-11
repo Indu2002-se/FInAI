@@ -30,6 +30,7 @@ class AuthRepositoryImpl implements AuthRepository {
     if (firebaseIdToken == null) {
       return null;
     }
+    await secureStorage.clearToken();
     final response = await remoteDataSource.loginWithFirebaseIdToken(firebaseIdToken);
     await secureStorage.saveToken(response.token);
     await secureStorage.saveRefreshToken(response.refreshToken);
@@ -51,6 +52,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
   }) async {
     try {
+      await secureStorage.clearToken();
       final request = LoginRequest(email: email, password: password);
       final response = await remoteDataSource.login(request);
 
@@ -83,6 +85,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required String lastName,
   }) async {
     try {
+      await secureStorage.clearToken();
       final request = RegisterRequest(
         email: email,
         password: password,

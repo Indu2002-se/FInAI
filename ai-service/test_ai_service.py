@@ -116,7 +116,7 @@ def test_model1_invalid_feature_length_fails():
 def test_model2_prophet_loading():
     forecast_svc = ForecastService(MODELS_DIR)
     assert forecast_svc.forecast_config is not None
-    assert forecast_svc.MIN_HISTORY_MONTHS == 12
+    assert forecast_svc.MIN_HISTORY_MONTHS == 3
     assert forecast_svc.food_model is not None
     assert forecast_svc.nonfood_model is not None
     assert forecast_svc.total_model is not None
@@ -143,11 +143,22 @@ def test_model2_forecast_valid_history():
 
 def test_model2_forecast_insufficient_history():
     forecast_svc = ForecastService(MODELS_DIR)
-    # 6 months is less than defensible 12-month annual requirement
-    short_history = get_valid_expense_history(6)
+    # 2 months is less than the 3-month minimum
+    short_history = get_valid_expense_history(2)
     fc = forecast_svc.forecast(history=short_history, forecast_months=6)
     assert fc.inference_source == "INSUFFICIENT_HISTORY"
     assert len(fc.total) == 0
+
+
+def test_model2_forecast_with_three_months():
+    forecast_svc = ForecastService(MODELS_DIR)
+    history = get_valid_expense_history(3)
+    fc = forecast_svc.forecast(history=history, forecast_months=6)
+    assert fc.inference_source in ("ML_MODEL", "MODEL_UNAVAILABLE")
+    if fc.inference_source == "ML_MODEL":
+        assert len(fc.total) == 6
+        assert len(fc.food) == 6
+        assert len(fc.nonFood) == 6
 
 def test_model2_no_hardcoded_baseline():
     """Verify that predictions dynamically reflect actual user scale, NOT hardcoded 5300 / 82000 / 87300 baselines."""
@@ -278,7 +289,7 @@ def test_api_expense_forecast_insufficient():
     with TestClient(app) as c:
         payload = {
             "userId": 1,
-            "history": [r.model_dump() for r in get_valid_expense_history(6)],  # 6 < 12 months
+            "history": [r.model_dump() for r in get_valid_expense_history(2)],  # 2 < 3 months
             "forecastMonths": 6
         }
         response = c.post("/api/v1/ai/expense/forecast", json=payload)
